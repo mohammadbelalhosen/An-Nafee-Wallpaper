@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: wallpapers
+    // Fields:
+    //   - title: string (required, 1-100 chars)
+    //   - imageUrl: string (required, URL format)
+    //   - type: string (required, 'mobile' or 'desktop')
+    //   - category: string (optional)
+    //   - createdAt: timestamp (required)
+    //   - authorId: string (required, matches auth.uid)
+    //   - authorEmail: string (optional)
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == "ashfbelal@gmail.com" && request.auth.token.email_verified == true);
+    }
+
+    function isValidWallpaper(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() < 100 &&
+             data.imageUrl is string && data.imageUrl.size() < 1000 &&
+             data.type in ["mobile", "desktop"] &&
+             data.createdAt is timestamp &&
+             data.authorId == request.auth.uid;
+    }
+
+    match /wallpapers/{wallpaperId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidWallpaper(request.resource.data);
+      allow update: if isAdmin() && isValidWallpaper(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}

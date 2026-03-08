@@ -1,0 +1,25 @@
+{
+  "entities": {
+    "Wallpaper": {
+      "title": "Wallpaper",
+      "description": "A wallpaper image for mobile or desktop",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Title of the wallpaper" },
+        "imageUrl": { "type": "string", "description": "URL of the wallpaper image" },
+        "type": { "type": "string", "enum": ["mobile", "desktop"], "description": "Type of wallpaper" },
+        "category": { "type": "string", "description": "Category (e.g., Nature, Abstract)" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "authorId": { "type": "string", "description": "UID of the uploader" },
+        "authorEmail": { "type": "string", "description": "Email of the uploader" }
+      },
+      "required": ["title", "imageUrl", "type", "createdAt", "authorId"]
+    }
+  },
+  "firestore": {
+    "wallpapers": {
+      "schema": "Wallpaper",
+      "description": "Collection of all wallpapers"
+    }
+  }
+}
