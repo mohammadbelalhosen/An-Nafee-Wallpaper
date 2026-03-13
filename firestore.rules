@@ -28,9 +28,15 @@ service cloud.firestore {
     }
 
     function isValidWallpaper(data) {
-      return data.title is string && data.title.size() > 0 && data.title.size() < 100 &&
-             data.imageUrl is string && data.imageUrl.size() < 1000 &&
-             data.type in ["mobile", "desktop"] &&
+      return data.imageUrl is string && data.imageUrl.size() < 1000 &&
+             data.type in ["mobile", "desktop", "fb_profile", "fb_cover"] &&
+             data.createdAt is timestamp &&
+             data.authorId == request.auth.uid;
+    }
+
+    function isValidArticle(data) {
+      return data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.content is string && data.content.size() < 50000 &&
              data.createdAt is timestamp &&
              data.authorId == request.auth.uid;
     }
@@ -40,6 +46,39 @@ service cloud.firestore {
       allow create: if isAdmin() && isValidWallpaper(request.resource.data);
       allow update: if isAdmin() && isValidWallpaper(request.resource.data);
       allow delete: if isAdmin();
+    }
+
+    match /articles/{articleId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidArticle(request.resource.data);
+      allow update: if (isAdmin() && isValidArticle(request.resource.data)) || 
+                      (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']));
+      allow delete: if isAdmin();
+    }
+
+    match /siteConfig/{configId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /links/{linkId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /apps/{appId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /videos/{videoId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /floatingContent/{contentId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }

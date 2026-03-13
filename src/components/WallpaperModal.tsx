@@ -1,13 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Download, Smartphone, Monitor, Share2, ChevronLeft, ChevronRight } from 'lucide-react';
-
-interface Wallpaper {
-  id: string;
-  title: string;
-  imageUrl: string;
-  type: 'mobile' | 'desktop';
-}
+import { X, Download, Smartphone, Monitor, Share2, ChevronLeft, ChevronRight, Facebook } from 'lucide-react';
+import { Wallpaper } from '../types';
 
 interface WallpaperModalProps {
   wallpaper: Wallpaper | null;
@@ -21,7 +15,6 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({ wallpaper, onClo
 
   const handleDownload = async () => {
     try {
-      // If it's a Google Drive link, we can try to use the direct download URL
       if (wallpaper.imageUrl.includes('googleusercontent.com/d/')) {
         const fileId = wallpaper.imageUrl.split('/d/')[1];
         const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
@@ -34,14 +27,13 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({ wallpaper, onClo
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${wallpaper.title.replace(/\s+/g, '-').toLowerCase()}-${wallpaper.type}.jpg`;
+      link.download = `wallpaper-${wallpaper.type}.jpg`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download failed:', error);
-      // Fallback: open in new tab
       window.open(wallpaper.imageUrl, '_blank');
     }
   };
@@ -68,7 +60,6 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({ wallpaper, onClo
           <X size={24} />
         </motion.button>
 
-        {/* Navigation Buttons */}
         {onPrev && (
           <button 
             onClick={(e) => { e.stopPropagation(); onPrev(); }}
@@ -93,22 +84,26 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({ wallpaper, onClo
           className="relative max-w-6xl w-full max-h-[90vh] flex flex-col md:flex-row gap-8 items-center justify-center"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="relative max-h-[70vh] md:max-h-[85vh] w-auto overflow-hidden rounded-2xl shadow-2xl border border-emerald-500/20 flex items-center justify-center">
+          <div className="relative max-h-[70vh] md:max-h-[85vh] w-auto overflow-hidden rounded-2xl shadow-2xl border border-emerald-500/20 flex items-center justify-center bg-black/20">
             <img
               src={wallpaper.imageUrl}
-              alt={wallpaper.title}
-              className="max-h-full w-auto object-contain"
+              alt="Preview"
+              className="max-h-[70vh] md:max-h-[85vh] w-auto object-contain"
               referrerPolicy="no-referrer"
             />
           </div>
 
           <div className="flex flex-col gap-4 sm:gap-6 text-white w-full md:w-80">
             <div>
-              <h2 className="text-xl sm:text-3xl font-bold tracking-tight text-emerald-50">{wallpaper.title}</h2>
               <p className="text-emerald-400 mt-1 sm:mt-2 flex items-center gap-2 uppercase text-[10px] sm:text-xs tracking-widest font-semibold">
-                {wallpaper.type === 'mobile' ? <Smartphone size={12} /> : <Monitor size={12} />}
-                {wallpaper.type === 'mobile' ? 'মোবাইল' : 'ডেস্কটপ'} ওয়ালপেপার
+                {wallpaper.type === 'mobile' && <Smartphone size={12} />}
+                {wallpaper.type === 'desktop' && <Monitor size={12} />}
+                {(wallpaper.type === 'fb_profile' || wallpaper.type === 'fb_cover') && <Facebook size={12} />}
+                {wallpaper.type === 'mobile' ? 'মোবাইল' : 
+                 wallpaper.type === 'desktop' ? 'ডেস্কটপ' : 
+                 wallpaper.type === 'fb_profile' ? 'ফেসবুক প্রোফাইল' : 'ফেসবুক কভার'} ওয়ালপেপার
               </p>
+              {wallpaper.category && <p className="text-emerald-200/50 text-xs mt-1">{wallpaper.category}</p>}
             </div>
 
             <div className="flex flex-col gap-2 sm:gap-3">
@@ -120,19 +115,47 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({ wallpaper, onClo
                 ডাউনলোড করুন
               </button>
               
-              <button
-                onClick={handleSetWallpaper}
-                className="flex items-center justify-center gap-2 w-full py-3 sm:py-4 bg-emerald-950/40 text-emerald-100 rounded-xl text-sm sm:text-base font-bold hover:bg-emerald-900/40 transition-colors border border-emerald-500/20"
-              >
-                <Share2 size={18} />
-                ওয়ালপেপার সেট করুন
-              </button>
+              {(wallpaper.type === 'fb_profile' || wallpaper.type === 'fb_cover') && (
+                <button
+                  onClick={handleSetWallpaper}
+                  className="flex items-center justify-center gap-2 w-full py-3 sm:py-4 bg-emerald-950/40 text-emerald-100 rounded-xl text-sm sm:text-base font-bold hover:bg-emerald-900/40 transition-colors border border-emerald-500/20"
+                >
+                  <Share2 size={18} />
+                  ফেসবুকে সেট করুন
+                </button>
+              )}
             </div>
 
-            <div className="p-3 sm:p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/10 text-[10px] sm:text-sm text-emerald-200/60 leading-relaxed">
-              <p className="italic">
-                টিপ: "ওয়ালপেপার সেট করুন" এ ক্লিক করলে ইমেজটি নতুন ট্যাবে ওপেন হবে। সেখান থেকে আপনি আপনার ডিভাইসে সেভ করে ওয়ালপেপার হিসেবে সেট করতে পারবেন।
-              </p>
+            <div className="p-3 sm:p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/10 text-[10px] sm:text-xs text-emerald-200/60 leading-relaxed">
+              <p className="font-bold text-emerald-400 mb-2">কিভাবে সেট করবেন:</p>
+              {wallpaper.type === 'mobile' && (
+                <ul className="list-decimal list-inside space-y-1">
+                  <li>ইমেজটি ডাউনলোড করুন।</li>
+                  <li>গ্যালারি থেকে ইমেজটি ওপেন করুন।</li>
+                  <li>'Set as Wallpaper' সিলেক্ট করুন।</li>
+                </ul>
+              )}
+              {wallpaper.type === 'desktop' && (
+                <ul className="list-decimal list-inside space-y-1">
+                  <li>ইমেজটি ডাউনলোড করুন।</li>
+                  <li>ইমেজের ওপর রাইট ক্লিক করুন।</li>
+                  <li>'Set as desktop background' সিলেক্ট করুন।</li>
+                </ul>
+              )}
+              {wallpaper.type === 'fb_profile' && (
+                <ul className="list-decimal list-inside space-y-1">
+                  <li>ইমেজটি ডাউনলোড করুন।</li>
+                  <li>ফেসবুকে 'Update Profile Picture' এ যান।</li>
+                  <li>ইমেজটি আপলোড করে সেভ করুন।</li>
+                </ul>
+              )}
+              {wallpaper.type === 'fb_cover' && (
+                <ul className="list-decimal list-inside space-y-1">
+                  <li>ইমেজটি ডাউনলোড করুন।</li>
+                  <li>ফেসবুকে 'Edit Cover Photo' এ যান।</li>
+                  <li>'Upload Photo' দিয়ে ইমেজটি সেট করুন।</li>
+                </ul>
+              )}
             </div>
           </div>
         </motion.div>
@@ -140,3 +163,4 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({ wallpaper, onClo
     </AnimatePresence>
   );
 };
+

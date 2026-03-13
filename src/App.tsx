@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Smartphone, 
@@ -7,302 +8,941 @@ import {
   LogIn, 
   LogOut, 
   ShieldCheck,
-  Moon,
-  Github
+  Facebook,
+  FileText,
+  Heart,
+  Share2,
+  ChevronRight,
+  Menu,
+  X as CloseIcon,
+  Clock,
+  Calendar,
+  ExternalLink,
+  PlayCircle,
+  LayoutGrid,
+  Link as LinkIcon,
+  Bell,
+  Info
 } from 'lucide-react';
 import { auth, loginWithGoogle, logout, db } from './firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { WallpaperCard } from './components/WallpaperCard';
 import { WallpaperModal } from './components/WallpaperModal';
 import { AdminPanel } from './components/AdminPanel';
 import { Toast } from './components/Toast';
+import { Wallpaper, Article, SiteConfig, LinkItem, AppItem, VideoItem, FloatingContent } from './types';
+import DOMPurify from 'dompurify';
 
-interface Wallpaper {
-  id: string;
-  title: string;
-  imageUrl: string;
-  type: 'mobile' | 'desktop';
-  category?: string;
-}
-
-export default function App() {
+const Navbar = () => {
   const [user] = useAuthState(auth);
-  const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
-  const [filter, setFilter] = useState<'all' | 'mobile' | 'desktop'>('all');
-  const [search, setSearch] = useState('');
-  const [selectedWallpaper, setSelectedWallpaper] = useState<Wallpaper | null>(null);
-  const [isAdminOpen, setIsAdminOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const location = useLocation();
   const isAdmin = user?.email === 'ashfbelal@gmail.com';
 
+  return (
+    <nav className="fixed top-0 left-0 right-0 z-40 bg-[#022c22]/80 backdrop-blur-xl border-b border-emerald-900/50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-2">
+          <img src="/logo.png" className="w-8 h-8 sm:w-12 sm:h-12 object-contain" alt="Logo" />
+          <span className="text-[10px] sm:text-lg md:text-2xl font-black tracking-tighter uppercase text-emerald-50 whitespace-nowrap">An-Nafee Wallpaper</span>
+        </Link>
+
+        <div className="hidden md:flex items-center gap-8 text-sm font-medium text-emerald-200/60">
+          <Link to="/" className={`hover:text-emerald-400 transition-colors ${location.pathname === '/' ? 'text-emerald-400' : ''}`}>হোম</Link>
+          <Link to="/articles" className={`hover:text-emerald-400 transition-colors ${location.pathname.startsWith('/articles') ? 'text-emerald-400' : ''}`}>আর্টিকেল</Link>
+          <Link to="/links" className={`hover:text-emerald-400 transition-colors ${location.pathname.startsWith('/links') ? 'text-emerald-400' : ''}`}>লিংক</Link>
+          <Link to="/apps" className={`hover:text-emerald-400 transition-colors ${location.pathname.startsWith('/apps') ? 'text-emerald-400' : ''}`}>অ্যাপস</Link>
+          <Link to="/videos" className={`hover:text-emerald-400 transition-colors ${location.pathname === '/videos' ? 'text-emerald-400' : ''}`}>ভিডিও</Link>
+          {isAdmin && <Link to="/admin" className={`hover:text-emerald-400 transition-colors ${location.pathname === '/admin' ? 'text-emerald-400' : ''}`}>এডমিন</Link>}
+        </div>
+
+        <div className="flex items-center gap-4">
+          {user ? (
+            <div className="flex items-center gap-3">
+              <img src={user.photoURL || ''} className="w-8 h-8 rounded-full border border-emerald-500/20" alt="" />
+              <button onClick={logout} className="text-emerald-200/60 hover:text-emerald-400"><LogOut size={18} /></button>
+            </div>
+          ) : (
+            <div className="w-8" /> // Spacer
+          )}
+          <button className="md:hidden text-emerald-200/60" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+            {isMenuOpen ? <CloseIcon size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="md:hidden bg-[#022c22] border-b border-emerald-900/50 p-4 space-y-4"
+          >
+            <Link to="/" onClick={() => setIsMenuOpen(false)} className="block text-emerald-200/60 hover:text-emerald-400">হোম</Link>
+            <Link to="/articles" onClick={() => setIsMenuOpen(false)} className="block text-emerald-200/60 hover:text-emerald-400">আর্টিকেল</Link>
+            <Link to="/links" onClick={() => setIsMenuOpen(false)} className="block text-emerald-200/60 hover:text-emerald-400">লিংক</Link>
+            <Link to="/apps" onClick={() => setIsMenuOpen(false)} className="block text-emerald-200/60 hover:text-emerald-400">অ্যাপস</Link>
+            <Link to="/videos" onClick={() => setIsMenuOpen(false)} className="block text-emerald-200/60 hover:text-emerald-400">ভিডিও</Link>
+            {isAdmin && <Link to="/admin" onClick={() => setIsMenuOpen(false)} className="block text-emerald-200/60 hover:text-emerald-400">এডমিন প্যানেল</Link>}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </nav>
+  );
+};
+
+const RealTimeInfo = () => {
+  const [dates, setDates] = useState({ english: '' });
+  const [prayer, setPrayer] = useState({ name: '', timeRemaining: '' });
+
   useEffect(() => {
-    const q = query(collection(db, 'wallpapers'), orderBy('createdAt', 'desc'));
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Wallpaper[];
+    const updateDates = () => {
+      const now = new Date();
+      const english = now.toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' });
+      setDates({ english });
+    };
+
+    const fetchPrayers = async () => {
+      try {
+        const res = await fetch('https://api.aladhan.com/v1/timingsByCity?city=Dhaka&country=Bangladesh&method=2');
+        const data = await res.json();
+        const timings = data.data.timings;
+        
+        const updatePrayer = () => {
+          const now = new Date();
+          const currentTime = now.getHours() * 60 + now.getMinutes();
+          
+          const prayerList = [
+            { name: 'ফজর', time: timings.Fajr },
+            { name: 'যোহর', time: timings.Dhuhr },
+            { name: 'আসর', time: timings.Asr },
+            { name: 'মাগরিব', time: timings.Maghrib },
+            { name: 'ইশা', time: timings.Isha }
+          ];
+
+          let currentPrayer = prayerList[prayerList.length - 1];
+          let nextPrayer = prayerList[0];
+
+          for (let i = 0; i < prayerList.length; i++) {
+            const [h, m] = prayerList[i].time.split(':').map(Number);
+            const prayerMinutes = h * 60 + m;
+            if (currentTime >= prayerMinutes) {
+              currentPrayer = prayerList[i];
+              nextPrayer = prayerList[(i + 1) % prayerList.length];
+            }
+          }
+
+          const [nh, nm] = nextPrayer.time.split(':').map(Number);
+          let nextMinutes = nh * 60 + nm;
+          if (nextMinutes < currentTime) nextMinutes += 24 * 60;
+          
+          const diff = nextMinutes - currentTime;
+          const hours = Math.floor(diff / 60);
+          const mins = diff % 60;
+          
+          setPrayer({
+            name: currentPrayer.name,
+            timeRemaining: `${hours > 0 ? hours + ' ঘণ্টা ' : ''}${mins} মিনিট বাকি`
+          });
+        };
+
+        updatePrayer();
+        updateDates(); // Also update dates when prayer updates
+        const interval = setInterval(() => {
+          updatePrayer();
+          updateDates();
+        }, 60000);
+        return () => clearInterval(interval);
+      } catch (error) {
+        console.error('Prayer fetch error:', error);
+      }
+    };
+
+    updateDates();
+    fetchPrayers();
+  }, []);
+
+  return (
+    <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-12 px-4 py-3 bg-emerald-950/30 border border-emerald-500/10 rounded-2xl backdrop-blur-sm">
+      <div className="flex items-center gap-4 text-xs sm:text-sm text-emerald-200/80">
+        <div className="flex items-center gap-2">
+          <Calendar size={14} className="text-emerald-500" />
+          <span>{dates.english} (ইংরেজি)</span>
+        </div>
+      </div>
+      
+      <div className="flex items-center gap-4 text-xs sm:text-sm text-emerald-200/80">
+        <div className="flex items-center gap-2">
+          <Clock size={14} className="text-emerald-500" />
+          <span className="font-bold text-emerald-400">{prayer.name}</span>
+          <span>ওয়াক্ত চলছে</span>
+        </div>
+        <div className="w-px h-4 bg-emerald-500/20 hidden sm:block" />
+        <div className="text-emerald-500/60 italic">{prayer.timeRemaining}</div>
+      </div>
+    </div>
+  );
+};
+
+const FloatingInfo = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [content, setContent] = useState<FloatingContent | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = doc(db, 'floatingContent', 'main');
+    const unsubscribe = onSnapshot(q, (docSnap) => {
+      if (docSnap.exists()) {
+        setContent(docSnap.data() as FloatingContent);
+      } else {
+        // Default content if none exists yet
+        setContent({
+          title: 'স্বাগতম',
+          description: 'এডমিন প্যানেল থেকে এই লেখাটি পরিবর্তন করুন।',
+          reference: ''
+        });
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  if (loading) return null;
+
+  return (
+    <>
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-center gap-2">
+        <motion.span 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-1 rounded-md shadow-lg whitespace-nowrap"
+        >
+          আজকের নোটিস
+        </motion.span>
+        <button 
+          onClick={() => setIsOpen(true)}
+          className="w-14 h-14 bg-emerald-600 text-white rounded-full flex items-center justify-center shadow-2xl hover:bg-emerald-500 hover:scale-110 transition-all group border-4 border-emerald-400/20"
+        >
+          <Bell size={24} className="group-hover:rotate-12 transition-transform" />
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => setIsOpen(false)}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-md bg-emerald-950 border border-emerald-500/20 rounded-3xl p-8 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button 
+                onClick={() => setIsOpen(false)}
+                className="absolute top-4 right-4 text-emerald-500/50 hover:text-emerald-400 transition-colors"
+              >
+                <CloseIcon size={24} />
+              </button>
+
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-500">
+                  <Info size={24} />
+                </div>
+                <h2 className="text-2xl font-black text-emerald-50">{content.title}</h2>
+              </div>
+
+              <p className="text-emerald-100/80 leading-relaxed mb-8 whitespace-pre-wrap">
+                {content.description}
+              </p>
+
+              {content.reference && (
+                <div className="pt-6 border-t border-emerald-500/10">
+                  <p className="text-xs text-emerald-500/60 italic">
+                    রেফারেন্স: {content.reference}
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
+
+const Home = () => {
+  const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [filter, setFilter] = useState<Wallpaper['type'] | 'all'>('all');
+  const [search, setSearch] = useState('');
+  const [selectedWallpaper, setSelectedWallpaper] = useState<Wallpaper | null>(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const [siteConfig, setSiteConfig] = useState<SiteConfig>({
+    heroHeading: 'আপনার প্রতিটি দৃষ্টি যেন হয় রবের সন্তুষ্টির জন্য',
+    heroSubHeading: '"নিশ্চয়ই আল্লাহ মুত্তাকীদের ভালোবাসেন।" আপনার স্মার্টফোনকে গুনাহের মাধ্যম নয়, বরং ঈমানি চেতনার অংশ করুন।'
+  });
+
+  const suggestedSearches = useMemo(() => {
+    const categories = wallpapers
+      .map(w => w.category)
+      .filter((cat): cat is string => !!cat && cat.trim() !== '');
+    const uniqueCategories = Array.from(new Set(categories));
+    // Shuffle or just take first 5
+    return uniqueCategories.sort(() => 0.5 - Math.random()).slice(0, 5);
+  }, [wallpapers]);
+
+  useEffect(() => {
+    const qW = query(collection(db, 'wallpapers'), orderBy('createdAt', 'desc'));
+    const unsubscribeW = onSnapshot(qW, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Wallpaper[];
       setWallpapers(docs);
       setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, []);
+    const qA = query(collection(db, 'articles'), orderBy('createdAt', 'desc'));
+    const unsubscribeA = onSnapshot(qA, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Article[];
+      setArticles(docs);
+    });
 
-  const handleLogin = async () => {
-    try {
-      const result = await loginWithGoogle();
-      if (result.user.email !== 'ashfbelal@gmail.com') {
-        await logout();
-        setToast({ message: 'দুঃখিত, শুধুমাত্র এডমিন লগইন করতে পারবেন।', type: 'error' });
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-    }
-  };
+    const fetchConfig = async () => {
+      const docSnap = await getDoc(doc(db, 'siteConfig', 'hero'));
+      if (docSnap.exists()) setSiteConfig(docSnap.data() as SiteConfig);
+    };
+    fetchConfig();
+
+    return () => {
+      unsubscribeW();
+      unsubscribeA();
+    };
+  }, []);
 
   const filteredWallpapers = wallpapers.filter(w => {
     const matchesFilter = filter === 'all' || w.type === filter;
-    const matchesSearch = w.title.toLowerCase().includes(search.toLowerCase()) || 
-                         w.category?.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = w.category?.toLowerCase().includes(search.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
+  const filteredArticles = articles.filter(a => 
+    a.title.toLowerCase().includes(search.toLowerCase()) || 
+    a.content.toLowerCase().includes(search.toLowerCase())
+  );
+
   return (
-    <div className="min-h-screen bg-[#022c22] text-zinc-100 font-sans selection:bg-emerald-500/30 islamic-pattern">
-      {/* Navigation */}
-      <nav className="fixed top-0 left-0 right-0 z-40 bg-[#022c22]/80 backdrop-blur-xl border-b border-emerald-900/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setFilter('all')}>
-            <img 
-              src="/logo.png" 
-              className="w-8 h-8 sm:w-12 sm:h-12 object-contain" 
-              alt="An-Nafee Logo" 
-            />
-            <span className="text-[10px] sm:text-lg md:text-2xl font-black tracking-tighter uppercase text-emerald-50 whitespace-nowrap">An-Nafee Wallpaper</span>
-          </div>
+    <main className="pt-32 pb-20 px-6 max-w-7xl mx-auto">
+      <RealTimeInfo />
+      <section className="mb-20 text-center relative">
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="absolute -top-20 left-1/2 -translate-x-1/2 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full -z-10" />
+        
+        <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black tracking-tight mb-4 bg-gradient-to-b from-emerald-50 to-emerald-500 bg-clip-text text-transparent px-4 leading-[1.2] pb-2">
+          {siteConfig.heroHeading}
+        </motion.h1>
+        <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-emerald-200/60 text-sm md:text-lg max-w-2xl mx-auto mb-8 px-6 leading-relaxed">
+          {siteConfig.heroSubHeading}
+        </motion.p>
 
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-emerald-200/60">
-            <button 
-              onClick={() => setFilter('all')}
-              className={`hover:text-emerald-400 transition-colors ${filter === 'all' ? 'text-emerald-400' : ''}`}
-            >
-              সবগুলো
-            </button>
-            <button 
-              onClick={() => setFilter('mobile')}
-              className={`hover:text-emerald-400 transition-colors ${filter === 'mobile' ? 'text-emerald-400' : ''}`}
-            >
-              মোবাইল
-            </button>
-            <button 
-              onClick={() => setFilter('desktop')}
-              className={`hover:text-emerald-400 transition-colors ${filter === 'desktop' ? 'text-emerald-400' : ''}`}
-            >
-              ডেস্কটপ
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-4">
-            {user ? (
-              <div className="flex items-center gap-2 sm:gap-4">
-                {isAdmin && (
-                  <button 
-                    onClick={() => setIsAdminOpen(!isAdminOpen)}
-                    className={`flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-all ${isAdminOpen ? 'bg-emerald-500/20 text-emerald-400' : 'hover:bg-white/5 text-emerald-200/60'}`}
-                  >
-                    <ShieldCheck size={16} className="sm:w-[18px] sm:h-[18px]" />
-                    <span className="text-[8px] sm:text-[10px] font-bold uppercase tracking-widest hidden xs:inline">এডমিন</span>
-                  </button>
-                )}
-                <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-4 border-l border-emerald-900/50">
-                  <img src={user.photoURL || ''} className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border border-emerald-500/20" alt="" />
-                  <button onClick={logout} className="text-emerald-200/60 hover:text-emerald-400">
-                    <LogOut size={16} className="sm:w-[18px] sm:h-[18px]" />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button 
-                onClick={handleLogin}
-                className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-6 py-1.5 sm:py-2 bg-emerald-600 text-white rounded-full text-xs sm:text-sm font-bold hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-900/40 whitespace-nowrap"
-              >
-                <LogIn size={14} className="sm:w-4 sm:h-4" />
-                এডমিন লগইন
-              </button>
-            )}
-          </div>
-        </div>
-      </nav>
-
-      <main className="pt-32 pb-20 px-6 max-w-7xl mx-auto">
-        {/* Hero Section */}
-        <section className="mb-20 text-center relative">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="absolute -top-20 left-1/2 -translate-x-1/2 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full -z-10"
-          />
-          
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black tracking-tight mb-4 bg-gradient-to-b from-emerald-50 to-emerald-500 bg-clip-text text-transparent px-4 leading-[1.1]"
-          >
-            আপনার প্রতিটি দৃষ্টি যেন হয় রবের সন্তুষ্টির জন্য
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-emerald-200/60 text-sm sm:text-sm md:text-lg max-w-2xl mx-auto mb-8 px-6 leading-relaxed"
-          >
-            "নিশ্চয়ই আল্লাহ মুত্তাকীদের ভালোবাসেন।" আপনার স্মার্টফোনকে গুনাহের মাধ্যম নয়, বরং ঈমানি চেতনার অংশ করুন। ডাউনলোড করুন সেরা সব হালাল ও এইচডি ওয়ালপেপার।
-          </motion.p>
-
-          <div className="max-w-xl mx-auto relative group px-4">
-            <Search className="absolute left-8 top-1/2 -translate-y-1/2 text-emerald-500/50 group-focus-within:text-emerald-400 transition-colors" size={16} />
+        <div className="max-w-xl mx-auto relative group px-4">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500/50 group-focus-within:text-emerald-400 transition-colors" size={16} />
             <input 
               type="text"
-              placeholder="টাইটেল বা ক্যাটাগরি দিয়ে খুঁজুন..."
+              placeholder="ওয়ালপেপার বা আর্টিকেল খুঁজুন..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-emerald-950/40 border border-emerald-500/20 rounded-2xl py-3 sm:py-3.5 pl-11 pr-4 text-sm sm:text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 transition-all placeholder:text-emerald-500/30"
+              className="w-full bg-emerald-950/40 border border-emerald-500/20 rounded-2xl py-3 pl-11 pr-4 text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 transition-all placeholder:text-emerald-500/30"
             />
           </div>
+          
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <span className="text-xs text-emerald-500/40 py-1">সাজেস্টেড:</span>
+            {suggestedSearches.map(s => (
+              <button 
+                key={s}
+                onClick={() => setSearch(s)}
+                className="text-xs px-3 py-1 rounded-full bg-emerald-500/5 border border-emerald-500/10 text-emerald-400/60 hover:bg-emerald-500/10 hover:text-emerald-400 transition-all"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
 
-          {/* Admin Panel Toggle - Moved below Hero */}
-          <div className="mt-8 flex justify-center">
-            <AnimatePresence>
-              {isAdmin && (
-                <button 
-                  onClick={() => setIsAdminOpen(!isAdminOpen)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all border ${isAdminOpen ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-emerald-950/40 border-emerald-500/20 text-emerald-200/60 hover:border-emerald-500/40'}`}
-                >
-                  <ShieldCheck size={16} />
-                  <span className="text-xs font-bold uppercase tracking-widest">এডমিন প্যানেল</span>
-                </button>
-              )}
-            </AnimatePresence>
+      {search && filteredArticles.length > 0 && (
+        <section className="mb-16">
+          <h2 className="text-xl font-bold mb-6 text-emerald-50 flex items-center gap-2">
+            <FileText size={20} className="text-emerald-500" /> আর্টিকেল ফলাফল ({filteredArticles.length})
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {filteredArticles.map(art => (
+              <div 
+                key={art.id}
+                onClick={() => navigate(`/articles/${art.id}`)}
+                className="p-6 bg-emerald-950/40 border border-emerald-500/10 rounded-2xl hover:border-emerald-500/30 transition-all cursor-pointer"
+              >
+                <h3 className="font-bold text-emerald-100 mb-2">{art.title}</h3>
+                <div 
+                  className="text-xs text-emerald-200/40 line-clamp-2"
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(art.content) }}
+                />
+              </div>
+            ))}
           </div>
         </section>
+      )}
 
-        <AnimatePresence>
-          {isAdminOpen && isAdmin && (
-            <motion.div 
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden mb-12 px-4"
-            >
-              <AdminPanel />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Filters & Content */}
-        <div className="flex flex-col gap-12">
-          <div className="flex items-center justify-between px-2 sm:px-0">
-            <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2 sm:gap-3 text-emerald-50">
-              {filter === 'all' && 'সাম্প্রতিক ওয়ালপেপার'}
-              {filter === 'mobile' && <><Smartphone className="text-emerald-500" size={20} /> মোবাইল</>}
-              {filter === 'desktop' && <><Monitor className="text-emerald-500" size={20} /> ডেস্কটপ</>}
-            </h2>
-            <div className="flex gap-1 bg-emerald-950/40 p-1 rounded-xl border border-emerald-500/10">
-              {(['all', 'mobile', 'desktop'] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setFilter(t)}
-                  className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg text-xs sm:text-xs font-bold uppercase tracking-widest transition-all ${filter === t ? 'bg-emerald-600 text-white shadow-lg' : 'text-emerald-500/50 hover:text-emerald-400'}`}
-                >
-                  {t === 'all' ? 'সব' : t === 'mobile' ? 'মোবাইল' : 'ডেস্কটপ'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="masonry-grid columns-1 sm:columns-2 md:columns-3 lg:columns-4">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                <div key={i} className="masonry-item bg-emerald-950/40 animate-pulse rounded-2xl border border-emerald-500/5 h-64" />
-              ))}
-            </div>
-          ) : filteredWallpapers.length > 0 ? (
-            <motion.div 
-              layout
-              className="masonry-grid columns-1 sm:columns-2 md:columns-3 lg:columns-4"
-            >
-              <AnimatePresence mode="popLayout">
-                {filteredWallpapers.map((wallpaper) => (
-                  <div key={wallpaper.id} className="masonry-item">
-                    <WallpaperCard 
-                      wallpaper={wallpaper} 
-                      onPreview={setSelectedWallpaper}
-                    />
-                  </div>
-                ))}
-              </AnimatePresence>
-            </motion.div>
-          ) : (
-            <div className="text-center py-20 bg-emerald-950/20 rounded-3xl border border-emerald-500/5">
-              <div className="w-20 h-20 bg-emerald-900/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Search size={32} className="text-emerald-800" />
-              </div>
-              <h3 className="text-xl font-bold mb-2 text-emerald-100">কোনো ওয়ালপেপার পাওয়া যায়নি</h3>
-              <p className="text-emerald-500/60">অন্য কিছু লিখে সার্চ করুন অথবা ফিল্টার পরিবর্তন করুন।</p>
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-emerald-900/50 py-12 px-6 bg-emerald-950/20">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
-          <div className="flex items-center gap-3">
-            <img 
-              src="/logo.png" 
-              className="w-10 h-10 object-contain" 
-              alt="An-Nafee Logo" 
-            />
-            <span className="font-bold tracking-tighter uppercase text-sm text-emerald-50">An-Nafee Wallpaper</span>
-          </div>
-          <p className="text-emerald-500/40 text-xs text-center md:text-left">
-            © ২০২৪ An-Nafee Wallpaper. প্রতিটি ডিভাইসের জন্য মার্জিত ওয়ালপেপার।
-          </p>
-          <div className="flex gap-6 text-emerald-500/40">
-            {/* Removed Github icon */}
+      <div className="flex flex-col gap-12">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 px-2">
+          <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-3 text-emerald-50">
+            {search ? `সার্চ ফলাফল (${filteredWallpapers.length})` : filter === 'all' ? 'সাম্প্রতিক ওয়ালপেপার' : ''}
+            {!search && filter === 'mobile' && <><Smartphone className="text-emerald-500" size={20} /> মোবাইল</>}
+            {!search && filter === 'desktop' && <><Monitor className="text-emerald-500" size={20} /> ডেস্কটপ</>}
+            {!search && filter === 'fb_profile' && <><Facebook className="text-emerald-500" size={20} /> প্রোফাইল</>}
+            {!search && filter === 'fb_cover' && <><Facebook className="text-emerald-500" size={20} /> কভার</>}
+          </h2>
+          <div className="flex flex-wrap justify-center gap-1 bg-emerald-950/40 p-1 rounded-xl border border-emerald-500/10">
+            {([
+              { id: 'all', label: 'সব' },
+              { id: 'mobile', label: 'মোবাইল' },
+              { id: 'desktop', label: 'ডেস্কটপ' },
+              { id: 'fb_profile', label: 'প্রোফাইল' },
+              { id: 'fb_cover', label: 'কভার' }
+            ] as const).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setFilter(t.id as any)}
+                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${filter === t.id ? 'bg-emerald-600 text-white shadow-lg' : 'text-emerald-500/50 hover:text-emerald-400'}`}
+              >
+                {t.label}
+              </button>
+            ))}
           </div>
         </div>
-      </footer>
 
-      {/* Preview Modal */}
+        {loading ? (
+          <div className="masonry-grid columns-1 sm:columns-2 md:columns-3 lg:columns-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+              <div key={i} className="masonry-item bg-emerald-950/40 animate-pulse rounded-2xl border border-emerald-500/5 h-64 mb-4" />
+            ))}
+          </div>
+        ) : (
+          <div className="masonry-grid columns-1 sm:columns-2 md:columns-3 lg:columns-4">
+            {filteredWallpapers.map((wallpaper) => (
+              <WallpaperCard key={wallpaper.id} wallpaper={wallpaper} onPreview={setSelectedWallpaper} />
+            ))}
+          </div>
+        )}
+      </div>
+
       <WallpaperModal 
         wallpaper={selectedWallpaper} 
         onClose={() => setSelectedWallpaper(null)} 
         onNext={() => {
-          if (!selectedWallpaper) return;
-          const currentIndex = filteredWallpapers.findIndex(w => w.id === selectedWallpaper.id);
-          const nextIndex = (currentIndex + 1) % filteredWallpapers.length;
-          setSelectedWallpaper(filteredWallpapers[nextIndex]);
+          const idx = filteredWallpapers.findIndex(w => w.id === selectedWallpaper?.id);
+          setSelectedWallpaper(filteredWallpapers[(idx + 1) % filteredWallpapers.length]);
         }}
         onPrev={() => {
-          if (!selectedWallpaper) return;
-          const currentIndex = filteredWallpapers.findIndex(w => w.id === selectedWallpaper.id);
-          const prevIndex = (currentIndex - 1 + filteredWallpapers.length) % filteredWallpapers.length;
-          setSelectedWallpaper(filteredWallpapers[prevIndex]);
+          const idx = filteredWallpapers.findIndex(w => w.id === selectedWallpaper?.id);
+          setSelectedWallpaper(filteredWallpapers[(idx - 1 + filteredWallpapers.length) % filteredWallpapers.length]);
         }}
       />
+    </main>
+  );
+};
 
-      <Toast 
-        isVisible={!!toast}
-        message={toast?.message || ''}
-        type={toast?.type}
-        onClose={() => setToast(null)}
+const Articles = () => {
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const q = query(collection(db, 'articles'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      setArticles(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Article[]);
+      setLoading(false);
+    });
+  }, []);
+
+  const handleLike = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    try {
+      await updateDoc(doc(db, 'articles', id), { likes: increment(1) });
+    } catch (error) {
+      console.error('Like error:', error);
+    }
+  };
+
+  const handleShare = (e: React.MouseEvent, article: Article) => {
+    e.stopPropagation();
+    if (navigator.share) {
+      navigator.share({
+        title: article.title,
+        url: `${window.location.origin}/articles/${article.id}`
+      });
+    }
+  };
+
+  return (
+    <main className="pt-32 pb-20 px-6 max-w-4xl mx-auto">
+      <h1 className="text-4xl font-black mb-12 text-emerald-50">আর্টিকেলস</h1>
+      <div className="space-y-8">
+        {articles.map(art => (
+          <motion.div 
+            key={art.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-emerald-950/40 border border-emerald-500/10 rounded-3xl p-8 hover:border-emerald-500/30 transition-all cursor-pointer group"
+            onClick={() => navigate(`/articles/${art.id}`)}
+          >
+            <h2 className="text-2xl font-bold mb-4 text-emerald-100 group-hover:text-emerald-400 transition-colors">{art.title}</h2>
+            <div 
+              className="text-emerald-200/60 line-clamp-3 mb-6 prose prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(art.content) }}
+            />
+            <div className="flex items-center justify-between">
+              <button className="flex items-center gap-2 text-emerald-400 font-bold text-sm">
+                আরও পড়ুন <ChevronRight size={16} />
+              </button>
+              <div className="flex gap-4">
+                <button onClick={(e) => handleLike(e, art.id)} className="flex items-center gap-1.5 text-emerald-500/60 hover:text-pink-500 transition-colors">
+                  <Heart size={18} /> <span>{art.likes}</span>
+                </button>
+                <button onClick={(e) => handleShare(e, art)} className="text-emerald-500/60 hover:text-emerald-400 transition-colors">
+                  <Share2 size={18} />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </main>
+  );
+};
+
+const ArticleDetail = () => {
+  const { id } = useParams();
+  const [article, setArticle] = useState<Article | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchArticle = async () => {
+      if (!id) return;
+      const docSnap = await getDoc(doc(db, 'articles', id));
+      if (docSnap.exists()) setArticle({ id: docSnap.id, ...docSnap.data() } as Article);
+      setLoading(false);
+    };
+    fetchArticle();
+  }, [id]);
+
+  const handleLike = async () => {
+    if (!article) return;
+    try {
+      await updateDoc(doc(db, 'articles', article.id), { likes: increment(1) });
+      setArticle(prev => prev ? { ...prev, likes: prev.likes + 1 } : null);
+    } catch (error) {
+      console.error('Like error:', error);
+    }
+  };
+
+  const handleShare = () => {
+    if (!article) return;
+    if (navigator.share) {
+      navigator.share({
+        title: article.title,
+        url: window.location.href
+      });
+    }
+  };
+
+  if (loading) return <div className="pt-40 text-center">লোডিং...</div>;
+  if (!article) return <div className="pt-40 text-center">আর্টিকেল পাওয়া যায়নি।</div>;
+
+  return (
+    <main className="pt-32 pb-20 px-6 max-w-3xl mx-auto">
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-4xl font-black text-emerald-50">{article.title}</h1>
+        <div className="flex gap-4">
+          <button onClick={handleLike} className="flex items-center gap-2 px-4 py-2 bg-emerald-950/40 border border-emerald-500/20 rounded-xl text-emerald-500 hover:text-pink-500 transition-all">
+            <Heart size={20} /> <span>{article.likes}</span>
+          </button>
+          <button onClick={handleShare} className="p-2 bg-emerald-950/40 border border-emerald-500/20 rounded-xl text-emerald-500 hover:text-emerald-400 transition-all">
+            <Share2 size={20} />
+          </button>
+        </div>
+      </div>
+      <div 
+        className="prose prose-invert prose-emerald max-w-none text-emerald-100/80 leading-relaxed"
+        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content) }}
       />
+    </main>
+  );
+};
+
+const LinksPage = () => {
+  const [links, setLinks] = useState<LinkItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const q = query(collection(db, 'links'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      setLinks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as LinkItem[]);
+      setLoading(false);
+    });
+  }, []);
+
+  return (
+    <main className="pt-32 pb-20 px-6 max-w-4xl mx-auto">
+      <h1 className="text-4xl font-black mb-12 text-emerald-50">প্রয়োজনীয় লিংক</h1>
+      <div className="grid gap-6">
+        {links.map(link => (
+          <motion.div 
+            key={link.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-emerald-950/40 border border-emerald-500/10 rounded-3xl p-6 hover:border-emerald-500/30 transition-all cursor-pointer group"
+            onClick={() => navigate(`/links/${link.id}`)}
+          >
+            <div className="flex justify-between items-start gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-emerald-100 group-hover:text-emerald-400 transition-colors mb-2">{link.title}</h2>
+                <p className="text-emerald-200/60 line-clamp-2 text-sm">{link.description}</p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <div 
+                  className="p-3 bg-emerald-500/10 rounded-xl text-emerald-500 hover:bg-emerald-500/20 transition-all"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(link.url, '_blank');
+                  }}
+                  title="সরাসরি লিংকে যান"
+                >
+                  <LinkIcon size={20} />
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <span className="text-emerald-400 font-bold text-xs flex items-center gap-1">
+                বিস্তারিত দেখুন <ChevronRight size={14} />
+              </span>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </main>
+  );
+};
+
+const LinkDetail = () => {
+  const { id } = useParams();
+  const [link, setLink] = useState<LinkItem | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLink = async () => {
+      if (!id) return;
+      const docSnap = await getDoc(doc(db, 'links', id));
+      if (docSnap.exists()) setLink({ id: docSnap.id, ...docSnap.data() } as LinkItem);
+      setLoading(false);
+    };
+    fetchLink();
+  }, [id]);
+
+  if (loading) return <div className="pt-40 text-center">লোডিং...</div>;
+  if (!link) return <div className="pt-40 text-center">লিংক পাওয়া যায়নি।</div>;
+
+  return (
+    <main className="pt-32 pb-20 px-6 max-w-3xl mx-auto">
+      <div className="bg-emerald-950/40 border border-emerald-500/10 rounded-3xl p-8">
+        <h1 className="text-3xl font-black text-emerald-50 mb-6">{link.title}</h1>
+        <p className="text-emerald-100/80 leading-relaxed mb-8 whitespace-pre-wrap">{link.description}</p>
+        <a 
+          href={link.url} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 px-8 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-500 transition-all"
+        >
+          ওয়েবসাইট ভিজিট করুন <ExternalLink size={20} />
+        </a>
+      </div>
+    </main>
+  );
+};
+
+const AppsPage = () => {
+  const [apps, setApps] = useState<AppItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const q = query(collection(db, 'apps'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      setApps(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AppItem[]);
+      setLoading(false);
+    });
+  }, []);
+
+  return (
+    <main className="pt-32 pb-20 px-6 max-w-5xl mx-auto">
+      <h1 className="text-4xl font-black mb-12 text-emerald-50">প্রয়োজনীয় অ্যাপস</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {apps.map(app => (
+          <motion.div 
+            key={app.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-emerald-950/40 border border-emerald-500/10 rounded-3xl overflow-hidden hover:border-emerald-500/30 transition-all cursor-pointer group flex flex-col"
+            onClick={() => navigate(`/apps/${app.id}`)}
+          >
+            <div className="aspect-video relative overflow-hidden bg-emerald-900/20">
+              <img 
+                src={app.imageUrl} 
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                alt={app.title}
+                referrerPolicy="no-referrer"
+              />
+            </div>
+            <div className="p-6 flex-1 flex flex-col">
+              <h2 className="text-xl font-bold text-emerald-100 group-hover:text-emerald-400 transition-colors mb-2">{app.title}</h2>
+              <p className="text-emerald-200/60 line-clamp-2 text-sm mb-4">{app.description}</p>
+              <div className="mt-auto flex justify-end">
+                <span className="text-emerald-400 font-bold text-xs flex items-center gap-1">
+                  বিস্তারিত দেখুন <ChevronRight size={14} />
+                </span>
+              </div>
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </main>
+  );
+};
+
+const AppDetail = () => {
+  const { id } = useParams();
+  const [app, setApp] = useState<AppItem | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchApp = async () => {
+      if (!id) return;
+      const docSnap = await getDoc(doc(db, 'apps', id));
+      if (docSnap.exists()) setApp({ id: docSnap.id, ...docSnap.data() } as AppItem);
+      setLoading(false);
+    };
+    fetchApp();
+  }, [id]);
+
+  if (loading) return <div className="pt-40 text-center">লোডিং...</div>;
+  if (!app) return <div className="pt-40 text-center">অ্যাপ পাওয়া যায়নি।</div>;
+
+  return (
+    <main className="pt-32 pb-20 px-6 max-w-4xl mx-auto">
+      <div className="bg-emerald-950/40 border border-emerald-500/10 rounded-3xl overflow-hidden">
+        <div className="aspect-video w-full bg-emerald-900/20">
+          <img src={app.imageUrl} className="w-full h-full object-cover" alt={app.title} referrerPolicy="no-referrer" />
+        </div>
+        <div className="p-8">
+          <h1 className="text-3xl font-black text-emerald-50 mb-6">{app.title}</h1>
+          <p className="text-emerald-100/80 leading-relaxed mb-8 whitespace-pre-wrap">{app.description}</p>
+          <a 
+            href={app.url} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-8 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-500 transition-all"
+          >
+            ডাউনলোড / ভিজিট করুন <ExternalLink size={20} />
+          </a>
+        </div>
+      </div>
+    </main>
+  );
+};
+
+const VideosPage = () => {
+  const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
+
+  useEffect(() => {
+    const q = query(collection(db, 'videos'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      setVideos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as VideoItem[]);
+      setLoading(false);
+    });
+  }, []);
+
+  const getYoutubeId = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  return (
+    <main className="pt-32 pb-20 px-6 max-w-6xl mx-auto">
+      <h1 className="text-4xl font-black mb-12 text-emerald-50">ভিডিও গ্যালারি</h1>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {videos.map(video => {
+          const videoId = getYoutubeId(video.videoUrl);
+          const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
+          
+          return (
+            <motion.div 
+              key={video.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-emerald-950/40 border border-emerald-500/10 rounded-3xl overflow-hidden hover:border-emerald-500/30 transition-all group cursor-pointer"
+              onClick={() => setSelectedVideo(video)}
+            >
+              <div className="aspect-video relative overflow-hidden bg-black">
+                {thumbnailUrl ? (
+                  <>
+                    <img 
+                      src={thumbnailUrl} 
+                      className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500" 
+                      alt={video.title} 
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-16 h-16 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 rounded-full flex items-center justify-center text-white shadow-2xl group-hover:scale-110 group-hover:bg-emerald-500/40 transition-all duration-300">
+                        <div className="w-0 h-0 border-t-[10px] border-t-transparent border-l-[18px] border-l-white border-b-[10px] border-b-transparent ml-1" />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-emerald-500/40">
+                    <PlayCircle size={48} />
+                  </div>
+                )}
+              </div>
+              <div className="p-6">
+                <h2 className="text-lg font-bold text-emerald-100 line-clamp-2 group-hover:text-emerald-400 transition-colors">{video.title}</h2>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Video Lightbox */}
+      <AnimatePresence>
+        {selectedVideo && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+            onClick={() => setSelectedVideo(null)}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button 
+                onClick={() => setSelectedVideo(null)}
+                className="absolute top-4 right-4 z-10 p-2 bg-black/50 text-white rounded-full hover:bg-black/80 transition-all"
+              >
+                <CloseIcon size={24} />
+              </button>
+              <iframe 
+                src={`https://www.youtube.com/embed/${getYoutubeId(selectedVideo.videoUrl)}?autoplay=1`}
+                className="w-full h-full border-none"
+                allow="autoplay; fullscreen"
+                allowFullScreen
+                title={selectedVideo.title}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </main>
+  );
+};
+
+
+const Admin = () => {
+  const [user] = useAuthState(auth);
+  const isAdmin = user?.email === 'ashfbelal@gmail.com';
+
+  if (!user) {
+    return (
+      <div className="pt-40 flex flex-col items-center justify-center gap-6">
+        <h2 className="text-2xl font-bold text-emerald-50">এডমিন লগইন প্রয়োজন</h2>
+        <button 
+          onClick={loginWithGoogle}
+          className="flex items-center gap-2 px-8 py-3 bg-emerald-600 text-white rounded-full font-bold hover:bg-emerald-500 transition-all"
+        >
+          <LogIn size={20} /> গুগল দিয়ে লগইন করুন
+        </button>
+      </div>
+    );
+  }
+
+  if (!isAdmin) return <div className="pt-40 text-center text-red-400">আপনার এডমিন এক্সেস নেই।</div>;
+
+  return (
+    <div className="pt-32 pb-20 px-6 max-w-7xl mx-auto">
+      <AdminPanel />
     </div>
+  );
+};
+
+export default function App() {
+  return (
+    <Router>
+      <div className="min-h-screen bg-[#022c22] text-zinc-100 font-sans selection:bg-emerald-500/30 islamic-pattern">
+        <Navbar />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/articles" element={<Articles />} />
+          <Route path="/articles/:id" element={<ArticleDetail />} />
+          <Route path="/links" element={<LinksPage />} />
+          <Route path="/links/:id" element={<LinkDetail />} />
+          <Route path="/apps" element={<AppsPage />} />
+          <Route path="/apps/:id" element={<AppDetail />} />
+          <Route path="/videos" element={<VideosPage />} />
+        </Routes>
+        
+        <FloatingInfo />
+
+        <footer className="border-t border-emerald-900/50 py-12 px-6 bg-emerald-950/20">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <img src="/logo.png" className="w-10 h-10 object-contain" alt="Logo" />
+                <span className="font-bold tracking-tighter uppercase text-sm text-emerald-50">An-Nafee Wallpaper</span>
+              </div>
+              <p className="text-emerald-500/40 text-xs">
+                © ২০২৪ An-Nafee Wallpaper. প্রতিটি ডিভাইসের জন্য মার্জিত ওয়ালপেপার।
+              </p>
+            </div>
+            
+            <div className="flex flex-col items-center md:items-end gap-2">
+              <p className="text-emerald-200/40 text-xs">Developed by</p>
+              <a 
+                href="https://facebook.com/belalvisuals" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors flex items-center gap-2"
+              >
+                Belal Hosen <Facebook size={14} />
+              </a>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </Router>
   );
 }
