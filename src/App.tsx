@@ -43,8 +43,7 @@ const Navbar = () => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-40 bg-[#022c22]/80 backdrop-blur-xl border-b border-emerald-900/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <img src="/logo.png" className="w-8 h-8 sm:w-12 sm:h-12 object-contain" alt="Logo" />
+        <Link to="/" className="flex items-center">
           <span className="text-[10px] sm:text-lg md:text-2xl font-black tracking-tighter uppercase text-emerald-50 whitespace-nowrap">An-Nafee Wallpaper</span>
         </Link>
 
@@ -920,8 +919,7 @@ export default function App() {
         <footer className="border-t border-emerald-900/50 py-12 px-6 bg-emerald-950/20">
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-3">
-                <img src="/logo.png" className="w-10 h-10 object-contain" alt="Logo" />
+              <div className="flex items-center">
                 <span className="font-bold tracking-tighter uppercase text-sm text-emerald-50">An-Nafee Wallpaper</span>
               </div>
               <p className="text-emerald-500/40 text-xs">
