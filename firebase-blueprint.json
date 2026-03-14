@@ -34,6 +34,62 @@
         "heroHeading": { "type": "string", "description": "Main heading for the hero section" },
         "heroSubHeading": { "type": "string", "description": "Sub-heading for the hero section" }
       }
+    },
+    "LinkItem": {
+      "title": "LinkItem",
+      "description": "A useful external link",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "url": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "url", "createdAt"]
+    },
+    "AppItem": {
+      "title": "AppItem",
+      "description": "A useful mobile app",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "playStoreUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "imageUrl", "createdAt"]
+    },
+    "VideoItem": {
+      "title": "VideoItem",
+      "description": "A YouTube video",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "videoUrl", "createdAt"]
+    },
+    "VideoPlaylist": {
+      "title": "VideoPlaylist",
+      "description": "A YouTube playlist",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "playlistUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "playlistUrl", "createdAt"]
+    },
+    "FloatingContent": {
+      "title": "FloatingContent",
+      "description": "Content for the notice/floating icon",
+      "type": "object",
+      "properties": {
+        "content": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "firestore": {
@@ -48,6 +104,26 @@
     "siteConfig": {
       "schema": "SiteConfig",
       "description": "Global configuration"
+    },
+    "links": {
+      "schema": "LinkItem",
+      "description": "Useful links"
+    },
+    "apps": {
+      "schema": "AppItem",
+      "description": "Useful apps"
+    },
+    "videos": {
+      "schema": "VideoItem",
+      "description": "YouTube videos"
+    },
+    "videoPlaylists": {
+      "schema": "VideoPlaylist",
+      "description": "YouTube playlists"
+    },
+    "floatingContent": {
+      "schema": "FloatingContent",
+      "description": "Notice content"
     }
   }
 }

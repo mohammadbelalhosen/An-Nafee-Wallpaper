@@ -3,6 +3,7 @@ export interface Wallpaper {
   imageUrl: string;
   type: 'mobile' | 'desktop' | 'fb_profile' | 'fb_cover';
   category?: string;
+  creditUrl?: string;
   createdAt: any;
   authorId: string;
 }
@@ -19,6 +20,7 @@ export interface Article {
 export interface SiteConfig {
   heroHeading: string;
   heroSubHeading: string;
+  wallpaperRequestUrl?: string;
 }
 
 export interface LinkItem {
@@ -42,6 +44,13 @@ export interface VideoItem {
   id: string;
   title: string;
   videoUrl: string;
+  createdAt: any;
+}
+
+export interface VideoPlaylist {
+  id: string;
+  title: string;
+  playlistUrl: string;
   createdAt: any;
 }
 

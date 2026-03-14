@@ -22,7 +22,8 @@ import {
   LayoutGrid,
   Link as LinkIcon,
   Bell,
-  Info
+  Info,
+  Youtube
 } from 'lucide-react';
 import { auth, loginWithGoogle, logout, db } from './firebase';
 import { useAuthState } from 'react-firebase-hooks/auth';
@@ -31,7 +32,7 @@ import { WallpaperCard } from './components/WallpaperCard';
 import { WallpaperModal } from './components/WallpaperModal';
 import { AdminPanel } from './components/AdminPanel';
 import { Toast } from './components/Toast';
-import { Wallpaper, Article, SiteConfig, LinkItem, AppItem, VideoItem, FloatingContent } from './types';
+import { Wallpaper, Article, SiteConfig, LinkItem, AppItem, VideoItem, FloatingContent, VideoPlaylist } from './types';
 import DOMPurify from 'dompurify';
 
 const Navbar = () => {
@@ -281,6 +282,11 @@ const FloatingInfo = () => {
 const Home = () => {
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
   const [articles, setArticles] = useState<Article[]>([]);
+  const [links, setLinks] = useState<LinkItem[]>([]);
+  const [apps, setApps] = useState<AppItem[]>([]);
+  const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [playlists, setPlaylists] = useState<VideoPlaylist[]>([]);
+  
   const [filter, setFilter] = useState<Wallpaper['type'] | 'all'>('all');
   const [search, setSearch] = useState('');
   const [selectedWallpaper, setSelectedWallpaper] = useState<Wallpaper | null>(null);
@@ -291,27 +297,36 @@ const Home = () => {
     heroSubHeading: '"নিশ্চয়ই আল্লাহ মুত্তাকীদের ভালোবাসেন।" আপনার স্মার্টফোনকে গুনাহের মাধ্যম নয়, বরং ঈমানি চেতনার অংশ করুন।'
   });
 
-  const suggestedSearches = useMemo(() => {
-    const categories = wallpapers
-      .map(w => w.category)
-      .filter((cat): cat is string => !!cat && cat.trim() !== '');
-    const uniqueCategories = Array.from(new Set(categories));
-    // Shuffle or just take first 5
-    return uniqueCategories.sort(() => 0.5 - Math.random()).slice(0, 5);
-  }, [wallpapers]);
-
   useEffect(() => {
     const qW = query(collection(db, 'wallpapers'), orderBy('createdAt', 'desc'));
     const unsubscribeW = onSnapshot(qW, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Wallpaper[];
-      setWallpapers(docs);
+      setWallpapers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Wallpaper[]);
       setLoading(false);
     });
 
     const qA = query(collection(db, 'articles'), orderBy('createdAt', 'desc'));
     const unsubscribeA = onSnapshot(qA, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Article[];
-      setArticles(docs);
+      setArticles(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Article[]);
+    });
+
+    const qL = query(collection(db, 'links'), orderBy('createdAt', 'desc'));
+    const unsubscribeL = onSnapshot(qL, (snapshot) => {
+      setLinks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as LinkItem[]);
+    });
+
+    const qAp = query(collection(db, 'apps'), orderBy('createdAt', 'desc'));
+    const unsubscribeAp = onSnapshot(qAp, (snapshot) => {
+      setApps(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as AppItem[]);
+    });
+
+    const qV = query(collection(db, 'videos'), orderBy('createdAt', 'desc'));
+    const unsubscribeV = onSnapshot(qV, (snapshot) => {
+      setVideos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as VideoItem[]);
+    });
+
+    const qP = query(collection(db, 'videoPlaylists'), orderBy('createdAt', 'desc'));
+    const unsubscribeP = onSnapshot(qP, (snapshot) => {
+      setPlaylists(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as VideoPlaylist[]);
     });
 
     const fetchConfig = async () => {
@@ -321,8 +336,7 @@ const Home = () => {
     fetchConfig();
 
     return () => {
-      unsubscribeW();
-      unsubscribeA();
+      unsubscribeW(); unsubscribeA(); unsubscribeL(); unsubscribeAp(); unsubscribeV(); unsubscribeP();
     };
   }, []);
 
@@ -332,115 +346,205 @@ const Home = () => {
     return matchesFilter && matchesSearch;
   });
 
-  const filteredArticles = articles.filter(a => 
-    a.title.toLowerCase().includes(search.toLowerCase()) || 
-    a.content.toLowerCase().includes(search.toLowerCase())
-  );
+  const displayWallpapers = filteredWallpapers.slice(0, 20);
+  const displayArticles = articles.slice(0, 3);
+  const displayLinks = links.slice(0, 4);
+  const displayApps = apps.slice(0, 3);
+  const displayVideos = videos.slice(0, 3);
 
   return (
     <main className="pt-32 pb-20 px-6 max-w-7xl mx-auto">
       <RealTimeInfo />
+      
+      {/* Hero Section */}
       <section className="mb-20 text-center relative">
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="absolute -top-20 left-1/2 -translate-x-1/2 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full -z-10" />
-        
         <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-black tracking-tight mb-4 bg-gradient-to-b from-emerald-50 to-emerald-500 bg-clip-text text-transparent px-4 leading-[1.2] pb-2">
           {siteConfig.heroHeading}
         </motion.h1>
         <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="text-emerald-200/60 text-sm md:text-lg max-w-2xl mx-auto mb-8 px-6 leading-relaxed">
           {siteConfig.heroSubHeading}
         </motion.p>
+      </section>
 
-        <div className="max-w-xl mx-auto relative group px-4">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500/50 group-focus-within:text-emerald-400 transition-colors" size={16} />
-            <input 
-              type="text"
-              placeholder="ওয়ালপেপার বা আর্টিকেল খুঁজুন..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-emerald-950/40 border border-emerald-500/20 rounded-2xl py-3 pl-11 pr-4 text-sm focus:outline-none focus:border-emerald-500/50 focus:ring-4 focus:ring-emerald-500/10 transition-all placeholder:text-emerald-500/30"
-            />
+      {/* Wallpapers Section */}
+      <section className="mb-20">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl font-bold text-emerald-50 flex items-center gap-2">
+            <LayoutGrid size={24} className="text-emerald-500" /> ওয়ালপেপার
+          </h2>
+          <Link to="/gallery" className="text-emerald-400 font-bold text-sm hover:text-emerald-300 transition-colors flex items-center gap-1">
+            সব দেখুন <ChevronRight size={16} />
+          </Link>
+        </div>
+        <div className="masonry-grid columns-1 sm:columns-2 md:columns-3 lg:columns-4">
+          {displayWallpapers.map((wallpaper) => (
+            <WallpaperCard key={wallpaper.id} wallpaper={wallpaper} onPreview={setSelectedWallpaper} />
+          ))}
+        </div>
+        {filteredWallpapers.length > 20 && (
+          <div className="mt-12 text-center">
+            <Link to="/gallery" className="inline-flex items-center gap-2 px-8 py-3 bg-emerald-600/20 border border-emerald-500/20 text-emerald-400 rounded-full font-bold hover:bg-emerald-600/30 transition-all">
+              আরও ওয়ালপেপার দেখুন <ChevronRight size={18} />
+            </Link>
           </div>
-          
-          <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <span className="text-xs text-emerald-500/40 py-1">সাজেস্টেড:</span>
-            {suggestedSearches.map(s => (
-              <button 
-                key={s}
-                onClick={() => setSearch(s)}
-                className="text-xs px-3 py-1 rounded-full bg-emerald-500/5 border border-emerald-500/10 text-emerald-400/60 hover:bg-emerald-500/10 hover:text-emerald-400 transition-all"
-              >
-                {s}
-              </button>
-            ))}
-          </div>
+        )}
+      </section>
+
+      {/* Articles Section */}
+      <section className="mb-20">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl font-bold text-emerald-50 flex items-center gap-2">
+            <FileText size={24} className="text-emerald-500" /> আর্টিকেল
+          </h2>
+          <Link to="/articles" className="text-emerald-400 font-bold text-sm hover:text-emerald-300 transition-colors flex items-center gap-1">
+            সব দেখুন <ChevronRight size={16} />
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {displayArticles.map(art => (
+            <div 
+              key={art.id}
+              onClick={() => navigate(`/articles/${art.id}`)}
+              className="p-6 bg-emerald-950/40 border border-emerald-500/10 rounded-2xl hover:border-emerald-500/30 transition-all cursor-pointer group"
+            >
+              <h3 className="font-bold text-emerald-100 mb-2 group-hover:text-emerald-400 transition-colors">{art.title}</h3>
+              <div 
+                className="text-xs text-emerald-200/40 line-clamp-3"
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(art.content) }}
+              />
+            </div>
+          ))}
         </div>
       </section>
 
-      {search && filteredArticles.length > 0 && (
-        <section className="mb-16">
-          <h2 className="text-xl font-bold mb-6 text-emerald-50 flex items-center gap-2">
-            <FileText size={20} className="text-emerald-500" /> আর্টিকেল ফলাফল ({filteredArticles.length})
+      {/* Apps Section */}
+      <section className="mb-20">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl font-bold text-emerald-50 flex items-center gap-2">
+            <Smartphone size={24} className="text-emerald-500" /> অ্যাপস
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {filteredArticles.map(art => (
-              <div 
-                key={art.id}
-                onClick={() => navigate(`/articles/${art.id}`)}
-                className="p-6 bg-emerald-950/40 border border-emerald-500/10 rounded-2xl hover:border-emerald-500/30 transition-all cursor-pointer"
-              >
-                <h3 className="font-bold text-emerald-100 mb-2">{art.title}</h3>
-                <div 
-                  className="text-xs text-emerald-200/40 line-clamp-2"
-                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(art.content) }}
-                />
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <div className="flex flex-col gap-12">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 px-2">
-          <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-3 text-emerald-50">
-            {search ? `সার্চ ফলাফল (${filteredWallpapers.length})` : filter === 'all' ? 'সাম্প্রতিক ওয়ালপেপার' : ''}
-            {!search && filter === 'mobile' && <><Smartphone className="text-emerald-500" size={20} /> মোবাইল</>}
-            {!search && filter === 'desktop' && <><Monitor className="text-emerald-500" size={20} /> ডেস্কটপ</>}
-            {!search && filter === 'fb_profile' && <><Facebook className="text-emerald-500" size={20} /> প্রোফাইল</>}
-            {!search && filter === 'fb_cover' && <><Facebook className="text-emerald-500" size={20} /> কভার</>}
-          </h2>
-          <div className="flex flex-wrap justify-center gap-1 bg-emerald-950/40 p-1 rounded-xl border border-emerald-500/10">
-            {([
-              { id: 'all', label: 'সব' },
-              { id: 'mobile', label: 'মোবাইল' },
-              { id: 'desktop', label: 'ডেস্কটপ' },
-              { id: 'fb_profile', label: 'প্রোফাইল' },
-              { id: 'fb_cover', label: 'কভার' }
-            ] as const).map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setFilter(t.id as any)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${filter === t.id ? 'bg-emerald-600 text-white shadow-lg' : 'text-emerald-500/50 hover:text-emerald-400'}`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+          <Link to="/apps" className="text-emerald-400 font-bold text-sm hover:text-emerald-300 transition-colors flex items-center gap-1">
+            সব দেখুন <ChevronRight size={16} />
+          </Link>
         </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {displayApps.map(app => (
+            <div 
+              key={app.id}
+              onClick={() => navigate(`/apps/${app.id}`)}
+              className="bg-emerald-950/40 border border-emerald-500/10 rounded-2xl overflow-hidden hover:border-emerald-500/30 transition-all cursor-pointer group"
+            >
+              <div className="aspect-video relative overflow-hidden bg-emerald-900/20">
+                <img src={app.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={app.title} referrerPolicy="no-referrer" />
+              </div>
+              <div className="p-4">
+                <h3 className="font-bold text-emerald-100 group-hover:text-emerald-400 transition-colors">{app.title}</h3>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
-        {loading ? (
-          <div className="masonry-grid columns-1 sm:columns-2 md:columns-3 lg:columns-4">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-              <div key={i} className="masonry-item bg-emerald-950/40 animate-pulse rounded-2xl border border-emerald-500/5 h-64 mb-4" />
-            ))}
-          </div>
-        ) : (
-          <div className="masonry-grid columns-1 sm:columns-2 md:columns-3 lg:columns-4">
-            {filteredWallpapers.map((wallpaper) => (
-              <WallpaperCard key={wallpaper.id} wallpaper={wallpaper} onPreview={setSelectedWallpaper} />
-            ))}
-          </div>
-        )}
+      {/* Videos Section */}
+      <section className="mb-20">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-2xl font-bold text-emerald-50 flex items-center gap-2">
+            <Youtube size={24} className="text-emerald-500" /> ভিডিও
+          </h2>
+          <Link to="/videos" className="text-emerald-400 font-bold text-sm hover:text-emerald-300 transition-colors flex items-center gap-1">
+            সব দেখুন <ChevronRight size={16} />
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {displayVideos.map(video => {
+            const getYoutubeId = (url: string) => {
+              const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+              const match = url.match(regExp);
+              return (match && match[2].length === 11) ? match[2] : null;
+            };
+            const videoId = getYoutubeId(video.videoUrl);
+            const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
+            return (
+              <div 
+                key={video.id}
+                onClick={() => navigate('/videos')}
+                className="bg-emerald-950/40 border border-emerald-500/10 rounded-2xl overflow-hidden hover:border-emerald-500/30 transition-all cursor-pointer group"
+              >
+                <div className="aspect-video relative overflow-hidden bg-black">
+                  <img src={thumbnailUrl} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all" alt={video.title} />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <PlayCircle size={40} className="text-emerald-500" />
+                  </div>
+                </div>
+                <div className="p-4">
+                  <h3 className="font-bold text-emerald-100 group-hover:text-emerald-400 transition-colors truncate">{video.title}</h3>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <WallpaperModal 
+        wallpaper={selectedWallpaper} 
+        onClose={() => setSelectedWallpaper(null)} 
+        onNext={() => {
+          const idx = filteredWallpapers.findIndex(w => w.id === selectedWallpaper?.id);
+          setSelectedWallpaper(filteredWallpapers[(idx + 1) % filteredWallpapers.length]);
+        }}
+        onPrev={() => {
+          const idx = filteredWallpapers.findIndex(w => w.id === selectedWallpaper?.id);
+          setSelectedWallpaper(filteredWallpapers[(idx - 1 + filteredWallpapers.length) % filteredWallpapers.length]);
+        }}
+      />
+    </main>
+  );
+};
+
+const GalleryPage = () => {
+  const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
+  const [filter, setFilter] = useState<Wallpaper['type'] | 'all'>('all');
+  const [selectedWallpaper, setSelectedWallpaper] = useState<Wallpaper | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(collection(db, 'wallpapers'), orderBy('createdAt', 'desc'));
+    return onSnapshot(q, (snapshot) => {
+      setWallpapers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Wallpaper[]);
+      setLoading(false);
+    });
+  }, []);
+
+  const filteredWallpapers = wallpapers.filter(w => filter === 'all' || w.type === filter);
+
+  return (
+    <main className="pt-32 pb-20 px-6 max-w-7xl mx-auto">
+      <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-12">
+        <h1 className="text-4xl font-black text-emerald-50">ওয়ালপেপার গ্যালারি</h1>
+        <div className="flex flex-wrap justify-center gap-1 bg-emerald-950/40 p-1 rounded-xl border border-emerald-500/10">
+          {([
+            { id: 'all', label: 'সব' },
+            { id: 'mobile', label: 'মোবাইল' },
+            { id: 'desktop', label: 'ডেস্কটপ' },
+            { id: 'fb_profile', label: 'প্রোফাইল' },
+            { id: 'fb_cover', label: 'কভার' }
+          ] as const).map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setFilter(t.id as any)}
+              className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all ${filter === t.id ? 'bg-emerald-600 text-white shadow-lg' : 'text-emerald-500/50 hover:text-emerald-400'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="masonry-grid columns-1 sm:columns-2 md:columns-3 lg:columns-4">
+        {filteredWallpapers.map((wallpaper) => (
+          <WallpaperCard key={wallpaper.id} wallpaper={wallpaper} onPreview={setSelectedWallpaper} />
+        ))}
       </div>
 
       <WallpaperModal 
@@ -770,15 +874,26 @@ const AppDetail = () => {
 
 const VideosPage = () => {
   const [videos, setVideos] = useState<VideoItem[]>([]);
+  const [playlists, setPlaylists] = useState<VideoPlaylist[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<VideoItem | null>(null);
 
   useEffect(() => {
-    const q = query(collection(db, 'videos'), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, (snapshot) => {
+    const qV = query(collection(db, 'videos'), orderBy('createdAt', 'desc'));
+    const unsubscribeV = onSnapshot(qV, (snapshot) => {
       setVideos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as VideoItem[]);
+    });
+
+    const qP = query(collection(db, 'videoPlaylists'), orderBy('createdAt', 'desc'));
+    const unsubscribeP = onSnapshot(qP, (snapshot) => {
+      setPlaylists(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as VideoPlaylist[]);
       setLoading(false);
     });
+
+    return () => {
+      unsubscribeV();
+      unsubscribeP();
+    };
   }, []);
 
   const getYoutubeId = (url: string) => {
@@ -788,48 +903,83 @@ const VideosPage = () => {
   };
 
   return (
-    <main className="pt-32 pb-20 px-6 max-w-6xl mx-auto">
+    <main className="pt-32 pb-20 px-6 max-w-7xl mx-auto">
       <h1 className="text-4xl font-black mb-12 text-emerald-50">ভিডিও গ্যালারি</h1>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {videos.map(video => {
-          const videoId = getYoutubeId(video.videoUrl);
-          const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
-          
-          return (
-            <motion.div 
-              key={video.id}
+      
+      {/* Playlists Section */}
+      <section className="mb-20">
+        <h2 className="text-2xl font-bold mb-8 text-emerald-50 flex items-center gap-3">
+          <Youtube className="text-emerald-500" size={24} /> ভিডিও প্লে-লিস্ট
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {playlists.map(pl => (
+            <motion.a 
+              key={pl.id}
+              href={pl.playlistUrl}
+              target="_blank"
+              rel="noopener noreferrer"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-emerald-950/40 border border-emerald-500/10 rounded-3xl overflow-hidden hover:border-emerald-500/30 transition-all group cursor-pointer"
-              onClick={() => setSelectedVideo(video)}
+              className="bg-emerald-950/40 border border-emerald-500/10 rounded-3xl p-6 hover:border-emerald-500/30 transition-all group flex items-center justify-between"
             >
-              <div className="aspect-video relative overflow-hidden bg-black">
-                {thumbnailUrl ? (
-                  <>
-                    <img 
-                      src={thumbnailUrl} 
-                      className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500" 
-                      alt={video.title} 
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-16 h-16 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 rounded-full flex items-center justify-center text-white shadow-2xl group-hover:scale-110 group-hover:bg-emerald-500/40 transition-all duration-300">
-                        <div className="w-0 h-0 border-t-[10px] border-t-transparent border-l-[18px] border-l-white border-b-[10px] border-b-transparent ml-1" />
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-emerald-500/10 rounded-2xl text-emerald-500 group-hover:scale-110 transition-transform">
+                  <LayoutGrid size={24} />
+                </div>
+                <h3 className="font-bold text-emerald-100 group-hover:text-emerald-400 transition-colors">{pl.title}</h3>
+              </div>
+              <ExternalLink size={20} className="text-emerald-500/40 group-hover:text-emerald-400" />
+            </motion.a>
+          ))}
+        </div>
+      </section>
+
+      {/* Individual Videos Section */}
+      <section>
+        <h2 className="text-2xl font-bold mb-8 text-emerald-50 flex items-center gap-3">
+          <PlayCircle className="text-emerald-500" size={24} /> ইনডিভিজুয়াল ভিডিও
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {videos.map(video => {
+            const videoId = getYoutubeId(video.videoUrl);
+            const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
+            
+            return (
+              <motion.div 
+                key={video.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-emerald-950/40 border border-emerald-500/10 rounded-3xl overflow-hidden hover:border-emerald-500/30 transition-all group cursor-pointer"
+                onClick={() => setSelectedVideo(video)}
+              >
+                <div className="aspect-video relative overflow-hidden bg-black">
+                  {thumbnailUrl ? (
+                    <>
+                      <img 
+                        src={thumbnailUrl} 
+                        className="w-full h-full object-cover opacity-60 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500" 
+                        alt={video.title} 
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-16 h-16 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 rounded-full flex items-center justify-center text-white shadow-2xl group-hover:scale-110 group-hover:bg-emerald-500/40 transition-all duration-300">
+                          <div className="w-0 h-0 border-t-[10px] border-t-transparent border-l-[18px] border-l-white border-b-[10px] border-b-transparent ml-1" />
+                        </div>
                       </div>
+                    </>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-emerald-500/40">
+                      <PlayCircle size={48} />
                     </div>
-                  </>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-emerald-500/40">
-                    <PlayCircle size={48} />
-                  </div>
-                )}
-              </div>
-              <div className="p-6">
-                <h2 className="text-lg font-bold text-emerald-100 line-clamp-2 group-hover:text-emerald-400 transition-colors">{video.title}</h2>
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
+                  )}
+                </div>
+                <div className="p-6">
+                  <h2 className="text-lg font-bold text-emerald-100 line-clamp-2 group-hover:text-emerald-400 transition-colors">{video.title}</h2>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      </section>
 
       {/* Video Lightbox */}
       <AnimatePresence>
@@ -872,18 +1022,37 @@ const VideosPage = () => {
 
 const Admin = () => {
   const [user] = useAuthState(auth);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const isAdmin = user?.email === 'ashfbelal@gmail.com';
+
+  const handleLogin = async () => {
+    setLoginError(null);
+    try {
+      await loginWithGoogle();
+    } catch (error: any) {
+      console.error('Login error:', error);
+      setLoginError(error.message || 'লগইন করতে সমস্যা হয়েছে। দয়া করে আবার চেষ্টা করুন।');
+    }
+  };
 
   if (!user) {
     return (
-      <div className="pt-40 flex flex-col items-center justify-center gap-6">
-        <h2 className="text-2xl font-bold text-emerald-50">এডমিন লগইন প্রয়োজন</h2>
+      <div className="pt-40 flex flex-col items-center justify-center gap-6 px-6">
+        <h2 className="text-2xl font-bold text-emerald-50 text-center">এডমিন লগইন প্রয়োজন</h2>
         <button 
-          onClick={loginWithGoogle}
+          onClick={handleLogin}
           className="flex items-center gap-2 px-8 py-3 bg-emerald-600 text-white rounded-full font-bold hover:bg-emerald-500 transition-all"
         >
           <LogIn size={20} /> গুগল দিয়ে লগইন করুন
         </button>
+        {loginError && (
+          <div className="mt-4 p-4 bg-red-950/50 border border-red-500/20 rounded-xl text-red-200 text-sm max-w-md text-center">
+            {loginError}
+            <p className="mt-2 text-xs text-red-300/60">
+              নোট: যদি 'unauthorized domain' সংক্রান্ত এরর আসে, তবে ফায়ারবেস কনসোলে গিয়ে Authentication &gt; Settings &gt; Authorized Domains এ আপনার ভিজিট করা ডোমেইনটি যুক্ত করুন।
+            </p>
+          </div>
+        )}
       </div>
     );
   }
@@ -897,49 +1066,85 @@ const Admin = () => {
   );
 };
 
+const Footer = () => {
+  const [requestUrl, setRequestUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchConfig = async () => {
+      const docSnap = await getDoc(doc(db, 'siteConfig', 'hero'));
+      if (docSnap.exists()) {
+        const data = docSnap.data() as SiteConfig;
+        if (data.wallpaperRequestUrl) {
+          setRequestUrl(data.wallpaperRequestUrl);
+        }
+      }
+    };
+    fetchConfig();
+  }, []);
+
+  return (
+    <footer className="border-t border-emerald-900/50 pt-8 pb-12 px-6 bg-emerald-950/20 mt-20">
+      <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
+        <div className="flex flex-col gap-4 text-center md:text-left">
+          <div className="flex items-center justify-center md:justify-start">
+            <span className="font-bold tracking-tighter uppercase text-sm text-emerald-50">An-Nafee Wallpaper</span>
+          </div>
+          <p className="text-emerald-500/40 text-xs">
+            © ২০২৪ An-Nafee Wallpaper. প্রতিটি ডিভাইসের জন্য মার্জিত ওয়ালপেপার।
+          </p>
+        </div>
+        
+        <div className="flex flex-col items-center md:items-end gap-4">
+          {requestUrl && (
+            <a 
+              href={requestUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-6 py-2 bg-emerald-600/20 border border-emerald-500/20 text-emerald-400 rounded-full font-bold hover:bg-emerald-600/30 transition-all text-sm mb-2"
+            >
+              ওয়ালপেপারের জন্য আবেদন করুন <ExternalLink size={16} />
+            </a>
+          )}
+          
+          <div className="flex flex-col items-center md:items-end gap-2">
+            <p className="text-emerald-200/40 text-xs">Developed by</p>
+            <a 
+              href="https://facebook.com/belalvisuals" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors flex items-center gap-2 text-sm"
+            >
+              Belal Hosen <Facebook size={14} />
+            </a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+};
+
 export default function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-[#022c22] text-zinc-100 font-sans selection:bg-emerald-500/30 islamic-pattern">
+      <div className="min-h-screen bg-[#022c22] text-zinc-100 font-sans selection:bg-emerald-500/30 islamic-pattern flex flex-col">
         <Navbar />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/articles" element={<Articles />} />
-          <Route path="/articles/:id" element={<ArticleDetail />} />
-          <Route path="/links" element={<LinksPage />} />
-          <Route path="/links/:id" element={<LinkDetail />} />
-          <Route path="/apps" element={<AppsPage />} />
-          <Route path="/apps/:id" element={<AppDetail />} />
-          <Route path="/videos" element={<VideosPage />} />
-        </Routes>
+        <div className="flex-1">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/gallery" element={<GalleryPage />} />
+            <Route path="/articles" element={<Articles />} />
+            <Route path="/articles/:id" element={<ArticleDetail />} />
+            <Route path="/links" element={<LinksPage />} />
+            <Route path="/links/:id" element={<LinkDetail />} />
+            <Route path="/apps" element={<AppsPage />} />
+            <Route path="/apps/:id" element={<AppDetail />} />
+            <Route path="/videos" element={<VideosPage />} />
+          </Routes>
+        </div>
         
         <FloatingInfo />
-
-        <footer className="border-t border-emerald-900/50 py-12 px-6 bg-emerald-950/20">
-          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center">
-                <span className="font-bold tracking-tighter uppercase text-sm text-emerald-50">An-Nafee Wallpaper</span>
-              </div>
-              <p className="text-emerald-500/40 text-xs">
-                © ২০২৪ An-Nafee Wallpaper. প্রতিটি ডিভাইসের জন্য মার্জিত ওয়ালপেপার।
-              </p>
-            </div>
-            
-            <div className="flex flex-col items-center md:items-end gap-2">
-              <p className="text-emerald-200/40 text-xs">Developed by</p>
-              <a 
-                href="https://facebook.com/belalvisuals" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-emerald-400 font-bold hover:text-emerald-300 transition-colors flex items-center gap-2"
-              >
-                Belal Hosen <Facebook size={14} />
-              </a>
-            </div>
-          </div>
-        </footer>
+        <Footer />
       </div>
     </Router>
   );

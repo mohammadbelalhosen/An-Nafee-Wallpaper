@@ -124,6 +124,18 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({ wallpaper, onClo
                   ফেসবুকে সেট করুন
                 </button>
               )}
+              
+              {wallpaper.creditUrl && (
+                <a
+                  href={wallpaper.creditUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-2 sm:py-3 mt-2 bg-emerald-900/30 text-emerald-200 rounded-xl text-xs sm:text-sm font-semibold hover:bg-emerald-800/40 hover:text-emerald-100 transition-colors border border-emerald-500/10"
+                >
+                  মূল ছবি (Credit) 
+                  <Share2 size={14} />
+                </a>
+              )}
             </div>
 
             <div className="p-3 sm:p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/10 text-[10px] sm:text-xs text-emerald-200/60 leading-relaxed">

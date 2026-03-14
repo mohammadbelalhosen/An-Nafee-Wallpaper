@@ -5,11 +5,12 @@ import { Plus, Image as ImageIcon, Loader2, Trash2, Edit2, Settings, List, X, Ch
 import { Toast } from './Toast';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
-import { Wallpaper, Article, SiteConfig, LinkItem, AppItem, VideoItem, FloatingContent } from '../types';
+import { Wallpaper, Article, SiteConfig, LinkItem, AppItem, VideoItem, FloatingContent, VideoPlaylist } from '../types';
 
 export const AdminPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'upload' | 'manage' | 'site' | 'articles' | 'links' | 'apps' | 'videos' | 'floating'>('upload');
   const [imageUrlInput, setImageUrlInput] = useState('');
+  const [creditUrl, setCreditUrl] = useState('');
   const [type, setType] = useState<Wallpaper['type']>('mobile');
   const [category, setCategory] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,6 +23,7 @@ export const AdminPanel: React.FC = () => {
   // Site Config State
   const [heroHeading, setHeroHeading] = useState('');
   const [heroSubHeading, setHeroSubHeading] = useState('');
+  const [wallpaperRequestUrl, setWallpaperRequestUrl] = useState('');
 
   // Articles State
   const [articleTitle, setArticleTitle] = useState('');
@@ -46,6 +48,11 @@ export const AdminPanel: React.FC = () => {
   const [videoTitle, setVideoTitle] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [videos, setVideos] = useState<VideoItem[]>([]);
+  
+  // Video Playlists State
+  const [playlistTitle, setPlaylistTitle] = useState('');
+  const [playlistUrl, setPlaylistUrl] = useState('');
+  const [playlists, setPlaylists] = useState<VideoPlaylist[]>([]);
 
   // Floating Content State
   const [floatingTitle, setFloatingTitle] = useState('');
@@ -71,8 +78,9 @@ export const AdminPanel: React.FC = () => {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data() as SiteConfig;
-          setHeroHeading(data.heroHeading);
-          setHeroSubHeading(data.heroSubHeading);
+          setHeroHeading(data.heroHeading || '');
+          setHeroSubHeading(data.heroSubHeading || '');
+          setWallpaperRequestUrl(data.wallpaperRequestUrl || '');
         }
       };
       fetchConfig();
@@ -107,11 +115,20 @@ export const AdminPanel: React.FC = () => {
     }
 
     if (activeTab === 'videos') {
-      const q = query(collection(db, 'videos'), orderBy('createdAt', 'desc'));
-      const unsubscribe = onSnapshot(q, (snapshot) => {
+      const qVideos = query(collection(db, 'videos'), orderBy('createdAt', 'desc'));
+      const unsubscribeVideos = onSnapshot(qVideos, (snapshot) => {
         setVideos(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as VideoItem[]);
       });
-      return () => unsubscribe();
+
+      const qPlaylists = query(collection(db, 'videoPlaylists'), orderBy('createdAt', 'desc'));
+      const unsubscribePlaylists = onSnapshot(qPlaylists, (snapshot) => {
+        setPlaylists(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as VideoPlaylist[]);
+      });
+
+      return () => {
+        unsubscribeVideos();
+        unsubscribePlaylists();
+      };
     }
 
     if (activeTab === 'floating') {
@@ -129,13 +146,59 @@ export const AdminPanel: React.FC = () => {
     }
   }, [activeTab]);
 
-  const getDirectDriveLink = (url: string) => {
-    if (!url.includes('drive.google.com')) return url;
-    const idMatch = url.match(/\/d\/([^/]+)/) || url.match(/id=([^&]+)/);
-    if (idMatch && idMatch[1]) {
-      return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+  const getProcessedImageUrlAsync = async (url: string) => {
+    let finalUrl = url.trim();
+    
+    // Google Drive
+    if (finalUrl.includes('drive.google.com')) {
+      const idMatch = finalUrl.match(/\/d\/([^/]+)/) || finalUrl.match(/id=([^&]+)/);
+      if (idMatch && idMatch[1]) {
+        return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+      }
     }
-    return url;
+
+    // Direct image links (optimization: bypass proxy)
+    const lowerUrl = finalUrl.toLowerCase();
+    if (lowerUrl.match(/\.(jpeg|jpg|gif|png|webp|svg|bmp)$/)) {
+      return finalUrl;
+    }
+
+    // Unsplash
+    if (finalUrl.includes('unsplash.com/photos')) {
+      const parts = finalUrl.split('-');
+      const id = parts[parts.length - 1];
+      if (id) {
+        return `https://source.unsplash.com/${id}`;
+      }
+    }
+
+    // General URL via CORS proxy to extract og:image / twitter:image
+    try {
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(finalUrl)}`;
+      const res = await fetch(proxyUrl);
+      if (res.ok) {
+        const proxyData = await res.json();
+        if (proxyData && proxyData.contents) {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(proxyData.contents, 'text/html');
+          
+          const ogImage = doc.querySelector('meta[property="og:image"]')?.getAttribute('content');
+          const twitterImage = doc.querySelector('meta[name="twitter:image"]')?.getAttribute('content');
+          
+          let extractedUrl = ogImage || twitterImage;
+          if (extractedUrl) {
+            // Some tags use HTML entities like &amp; inside the content attribute
+            extractedUrl = extractedUrl.replace(/&amp;/g, '&');
+            return extractedUrl;
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching image metadata for:', finalUrl, e);
+    }
+    
+    // If extraction fails, fall back to the original url
+    return finalUrl;
   };
 
   const handleSubmitWallpaper = async (e: React.FormEvent) => {
@@ -148,17 +211,19 @@ export const AdminPanel: React.FC = () => {
 
     setLoading(true);
     try {
-      const finalImageUrl = getDirectDriveLink(imageUrlInput.trim());
+      const finalImageUrl = await getProcessedImageUrlAsync(imageUrlInput.trim());
       await addDoc(collection(db, 'wallpapers'), {
         imageUrl: finalImageUrl,
         type,
         category,
+        creditUrl: creditUrl.trim() || null,
         createdAt: serverTimestamp(),
         authorId: auth.currentUser.uid,
       });
 
       setImageUrlInput('');
       setCategory('');
+      setCreditUrl('');
       setToast({ message: 'ওয়ালপেপার সফলভাবে যোগ হয়েছে!', type: 'success' });
     } catch (error: any) {
       console.error('Error adding wallpaper:', error);
@@ -174,7 +239,8 @@ export const AdminPanel: React.FC = () => {
     try {
       await setDoc(doc(db, 'siteConfig', 'hero'), {
         heroHeading,
-        heroSubHeading
+        heroSubHeading,
+        wallpaperRequestUrl
       });
       setToast({ message: 'সাইট কনফিগ আপডেট হয়েছে!', type: 'success' });
     } catch (error) {
@@ -258,7 +324,7 @@ export const AdminPanel: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      const finalImageUrl = getDirectDriveLink(appImageUrl.trim());
+      const finalImageUrl = await getProcessedImageUrlAsync(appImageUrl.trim());
       await addDoc(collection(db, 'apps'), {
         title: appTitle,
         description: appDescription,
@@ -309,6 +375,25 @@ export const AdminPanel: React.FC = () => {
       setToast({ message: 'ফ্লোটিং কন্টেন্ট আপডেট হয়েছে!', type: 'success' });
     } catch (error) {
       setToast({ message: 'আপডেট করতে সমস্যা হয়েছে।', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitPlaylist = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await addDoc(collection(db, 'videoPlaylists'), {
+        title: playlistTitle,
+        playlistUrl: playlistUrl,
+        createdAt: serverTimestamp(),
+      });
+      setPlaylistTitle('');
+      setPlaylistUrl('');
+      setToast({ message: 'প্লে-লিস্ট সফলভাবে যোগ হয়েছে!', type: 'success' });
+    } catch (error) {
+      setToast({ message: 'যোগ করতে সমস্যা হয়েছে।', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -391,6 +476,16 @@ export const AdminPanel: React.FC = () => {
               />
             </div>
           </div>
+          <div>
+            <label className="block text-xs font-semibold text-emerald-500/70 uppercase tracking-wider mb-1">ক্রেডিট লিংক (Credit URL) (ঐচ্ছিক)</label>
+            <input
+              type="url"
+              value={creditUrl}
+              onChange={(e) => setCreditUrl(e.target.value)}
+              className="w-full bg-black/40 border border-emerald-500/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 transition-colors"
+              placeholder="যেমন: https://unsplash.com/..."
+            />
+          </div>
           <button
             type="submit"
             disabled={loading}
@@ -421,6 +516,16 @@ export const AdminPanel: React.FC = () => {
               value={heroSubHeading}
               onChange={(e) => setHeroSubHeading(e.target.value)}
               className="w-full bg-black/40 border border-emerald-500/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500 h-24"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-emerald-500/70 uppercase tracking-wider mb-1">ওয়ালপেপার রিকুয়েস্ট গুগল ফর্ম লিংক</label>
+            <input
+              type="url"
+              value={wallpaperRequestUrl}
+              onChange={(e) => setWallpaperRequestUrl(e.target.value)}
+              className="w-full bg-black/40 border border-emerald-500/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+              placeholder="https://docs.google.com/forms/..."
             />
           </div>
           <button
@@ -608,40 +713,83 @@ export const AdminPanel: React.FC = () => {
       )}
 
       {activeTab === 'videos' && (
-        <div className="space-y-8">
-          <form onSubmit={handleSubmitVideo} className="space-y-4">
-            <input
-              type="text"
-              required
-              value={videoTitle}
-              onChange={(e) => setVideoTitle(e.target.value)}
-              className="w-full bg-black/40 border border-emerald-500/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
-              placeholder="ভিডিও টাইটেল"
-            />
-            <input
-              type="url"
-              required
-              value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              className="w-full bg-black/40 border border-emerald-500/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
-              placeholder="ইউটিউব ভিডিও লিংক"
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all"
-            >
-              {loading ? <Loader2 className="animate-spin mx-auto" /> : 'ভিডিও যোগ করুন'}
-            </button>
-          </form>
-
+        <div className="space-y-12">
+          {/* Individual Videos Section */}
           <div className="space-y-4">
-            {videos.map(video => (
-              <div key={video.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-emerald-500/10">
-                <span className="text-sm font-medium text-emerald-50 truncate flex-1">{video.title}</span>
-                <button onClick={() => handleDeleteItem('videos', video.id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
-              </div>
-            ))}
+            <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest border-b border-emerald-500/10 pb-2">ইনডিভিজুয়াল ভিডিও</h3>
+            <form onSubmit={handleSubmitVideo} className="space-y-4">
+              <input
+                type="text"
+                required
+                value={videoTitle}
+                onChange={(e) => setVideoTitle(e.target.value)}
+                className="w-full bg-black/40 border border-emerald-500/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                placeholder="ভিডিও টাইটেল"
+              />
+              <input
+                type="url"
+                required
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                className="w-full bg-black/40 border border-emerald-500/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                placeholder="ইউটিউব ভিডিও লিংক"
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all"
+              >
+                {loading ? <Loader2 className="animate-spin mx-auto" /> : 'ভিডিও যোগ করুন'}
+              </button>
+            </form>
+
+            <div className="grid grid-cols-1 gap-2">
+              {videos.map(video => (
+                <div key={video.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-emerald-500/10">
+                  <span className="text-sm font-medium text-emerald-50 truncate flex-1">{video.title}</span>
+                  <button onClick={() => handleDeleteItem('videos', video.id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Video Playlists Section */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest border-b border-emerald-500/10 pb-2">ভিডিও প্লে-লিস্ট</h3>
+            <form onSubmit={handleSubmitPlaylist} className="space-y-4">
+              <input
+                type="text"
+                required
+                value={playlistTitle}
+                onChange={(e) => setPlaylistTitle(e.target.value)}
+                className="w-full bg-black/40 border border-emerald-500/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                placeholder="প্লে-লিস্ট টাইটেল"
+              />
+              <input
+                type="url"
+                required
+                value={playlistUrl}
+                onChange={(e) => setPlaylistUrl(e.target.value)}
+                className="w-full bg-black/40 border border-emerald-500/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
+                placeholder="ইউটিউব প্লে-লিস্ট লিংক"
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all"
+              >
+                {loading ? <Loader2 className="animate-spin mx-auto" /> : 'প্লে-লিস্ট যোগ করুন'}
+              </button>
+            </form>
+
+            <div className="grid grid-cols-1 gap-2">
+              {playlists.map(pl => (
+                <div key={pl.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-emerald-500/10">
+                  <span className="text-sm font-medium text-emerald-50 truncate flex-1">{pl.title}</span>
+                  <button onClick={() => handleDeleteItem('videoPlaylists', pl.id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
