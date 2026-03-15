@@ -383,32 +383,11 @@ export const AdminPanel: React.FC = () => {
       if (match) finalUrl = match[1];
     }
 
-    let thumbnailUrl = '';
-    // Fetch thumbnail for non-YouTube links
-    if (!finalUrl.includes('youtube.com') && !finalUrl.includes('youtu.be')) {
-      try {
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(finalUrl)}`;
-        const response = await fetch(proxyUrl);
-        const data = await response.json();
-        if (data.contents) {
-          const match = data.contents.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i) ||
-                        data.contents.match(/<meta[^>]*content="([^"]+)"[^>]*property="og:image"/i) ||
-                        data.contents.match(/<meta[^>]*name="twitter:image"[^>]*content="([^"]+)"/i);
-          if (match && match[1]) {
-            thumbnailUrl = match[1].replace(/&amp;/g, '&');
-          }
-        }
-      } catch (error) {
-        console.error('Thumbnail fetch error:', error);
-      }
-    }
-
     try {
       if (editingVideoId) {
         await updateDoc(doc(db, 'videos', editingVideoId), {
           title: videoTitle,
           videoUrl: finalUrl,
-          thumbnailUrl: thumbnailUrl || '',
           embedDisabled: videoEmbedDisabled,
         });
         setEditingVideoId(null);
@@ -417,7 +396,6 @@ export const AdminPanel: React.FC = () => {
         await addDoc(collection(db, 'videos'), {
           title: videoTitle,
           videoUrl: finalUrl,
-          thumbnailUrl: thumbnailUrl || '',
           embedDisabled: videoEmbedDisabled,
           createdAt: serverTimestamp(),
         });

@@ -483,7 +483,7 @@ const Home = () => {
               if (url.includes('facebook.com') || url.includes('fb.watch')) {
                 return { 
                   embedUrl: `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&autoplay=true`, 
-                  thumbnailUrl: savedThumb || '',
+                  thumbnailUrl: '',
                   platform: 'facebook' 
                 };
               }
@@ -502,25 +502,36 @@ const Home = () => {
                 }}
                 className="bg-emerald-950/40 border border-emerald-500/10 rounded-2xl overflow-hidden hover:border-emerald-500/30 transition-all cursor-pointer group"
               >
-                <div className="aspect-video relative overflow-hidden bg-black">
-                  <img src={thumbnailUrl} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all" alt={video.title} />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    {platform === 'facebook' ? (
-                      <div className="flex flex-col items-center gap-2">
-                        <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl">
-                          <Facebook size={24} />
-                        </div>
-                        <span className="text-[10px] bg-blue-600/80 text-white px-2 py-0.5 rounded-full backdrop-blur-sm font-semibold">ফেসবুকে দেখুন</span>
+                <div className="aspect-video relative overflow-hidden bg-black/60">
+                  {thumbnailUrl ? (
+                    <>
+                      <img src={thumbnailUrl} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all font-sans" alt={video.title} />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        {platform === 'facebook' ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl">
+                              <Facebook size={24} />
+                            </div>
+                            <span className="text-[10px] bg-blue-600/80 text-white px-2 py-0.5 rounded-full backdrop-blur-sm font-semibold whitespace-nowrap">ফেসবুকে দেখুন</span>
+                          </div>
+                        ) : video.embedDisabled ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <PlayCircle size={40} className="text-emerald-500" />
+                            <span className="text-[10px] bg-red-800/80 text-red-200 px-2 py-0.5 rounded-full backdrop-blur-sm font-semibold whitespace-nowrap">ইউটিউবে দেখুন</span>
+                          </div>
+                        ) : (
+                          <PlayCircle size={40} className="text-emerald-500" />
+                        )}
                       </div>
-                    ) : video.embedDisabled ? (
-                      <div className="flex flex-col items-center gap-2">
-                        <PlayCircle size={40} className="text-emerald-500" />
-                        <span className="text-[10px] bg-red-800/80 text-red-200 px-2 py-0.5 rounded-full backdrop-blur-sm font-semibold">ইউটিউবে দেখুন</span>
+                    </>
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-blue-900/20 to-black text-blue-400">
+                      <div className="w-12 h-12 bg-blue-600/20 backdrop-blur-md border border-blue-500/30 rounded-full flex items-center justify-center transition-all group-hover:scale-110 group-hover:bg-blue-600/40">
+                        <Facebook size={24} />
                       </div>
-                    ) : (
-                      <PlayCircle size={40} className="text-emerald-500" />
-                    )}
-                  </div>
+                      <span className="text-[10px] bg-blue-600/80 text-white px-2 py-0.5 rounded-full backdrop-blur-sm font-semibold whitespace-nowrap">ফেসবুকে দেখুন</span>
+                    </div>
+                  )}
                 </div>
                 <div className="p-4">
                   <h3 className="font-bold text-emerald-100 group-hover:text-emerald-400 transition-colors truncate">{video.title}</h3>
@@ -1018,7 +1029,7 @@ const VideosPage = () => {
     if (url.includes('facebook.com') || url.includes('fb.watch')) {
       return {
         embedUrl: `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&autoplay=true`,
-        thumbnailUrl: savedThumb || '',
+        thumbnailUrl: '',
         platform: 'facebook' as const,
       };
     }
@@ -1080,7 +1091,7 @@ const VideosPage = () => {
                   }
                 }}
               >
-                <div className="aspect-video relative overflow-hidden bg-black">
+                <div className="aspect-video relative overflow-hidden bg-black/60">
                   {thumbnailUrl ? (
                     <>
                       <img 
@@ -1094,7 +1105,7 @@ const VideosPage = () => {
                             <div className="w-16 h-16 bg-blue-600/20 backdrop-blur-md border border-blue-500/30 rounded-full flex items-center justify-center text-white shadow-2xl group-hover:scale-110 group-hover:bg-blue-600/40 transition-all duration-300">
                               <Facebook size={32} />
                             </div>
-                            <span className="text-[10px] bg-blue-600/80 text-white px-2 py-0.5 rounded-full backdrop-blur-sm font-semibold">ফেসবুকে দেখুন</span>
+                            <span className="text-[10px] bg-blue-600/80 text-white px-2 py-0.5 rounded-full backdrop-blur-sm font-semibold whitespace-nowrap">ফেসবুকে দেখুন</span>
                           </div>
                         ) : (
                           <div className="w-16 h-16 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 rounded-full flex items-center justify-center text-white shadow-2xl group-hover:scale-110 group-hover:bg-emerald-500/40 transition-all duration-300">
@@ -1104,13 +1115,24 @@ const VideosPage = () => {
                       </div>
                       {video.embedDisabled && (
                         <div className="absolute bottom-2 right-2">
-                          <span className="text-[10px] bg-red-800/80 text-red-200 px-2 py-0.5 rounded-full backdrop-blur-sm font-semibold">ইউটিউবে দেখুন</span>
+                          <span className="text-[10px] bg-red-800/80 text-red-200 px-2 py-0.5 rounded-full backdrop-blur-sm font-semibold whitespace-nowrap">ইউটিউবে দেখুন</span>
                         </div>
                       )}
                     </>
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-emerald-500/40">
-                      <PlayCircle size={48} />
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-gradient-to-br from-blue-900/20 to-black">
+                      {platform === 'facebook' ? (
+                        <>
+                          <div className="w-20 h-20 bg-blue-600/20 backdrop-blur-md border border-blue-500/30 rounded-full flex items-center justify-center text-blue-500 transition-all group-hover:scale-110 group-hover:bg-blue-600/40 shadow-2xl">
+                            <Facebook size={40} />
+                          </div>
+                          <span className="text-sm font-black text-blue-400 uppercase tracking-widest px-4 py-1.5 bg-blue-500/10 rounded-full border border-blue-500/20 shadow-lg">ফেসবুকে দেখুন</span>
+                        </>
+                      ) : (
+                        <div className="w-16 h-16 flex items-center justify-center text-emerald-500/40">
+                          <PlayCircle size={48} />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
