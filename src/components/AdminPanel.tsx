@@ -36,6 +36,7 @@ export const AdminPanel: React.FC = () => {
   const [linkTitle, setLinkTitle] = useState('');
   const [linkDescription, setLinkDescription] = useState('');
   const [linkUrl, setLinkUrl] = useState('');
+  const [editingLinkId, setEditingLinkId] = useState<string | null>(null);
   const [links, setLinks] = useState<LinkItem[]>([]);
 
   // Apps State
@@ -43,12 +44,14 @@ export const AdminPanel: React.FC = () => {
   const [appDescription, setAppDescription] = useState('');
   const [appUrl, setAppUrl] = useState('');
   const [appImageUrl, setAppImageUrl] = useState('');
+  const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [apps, setApps] = useState<AppItem[]>([]);
 
   // Videos State
   const [videoTitle, setVideoTitle] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [videoEmbedDisabled, setVideoEmbedDisabled] = useState(false);
+  const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
   const [videos, setVideos] = useState<VideoItem[]>([]);
   
   // Video Playlists State
@@ -316,16 +319,22 @@ export const AdminPanel: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await addDoc(collection(db, 'links'), {
-        title: linkTitle,
-        description: linkDescription,
-        url: linkUrl,
-        createdAt: serverTimestamp(),
-      });
+      if (editingLinkId) {
+        await updateDoc(doc(db, 'links', editingLinkId), { title: linkTitle, description: linkDescription, url: linkUrl });
+        setEditingLinkId(null);
+        setToast({ message: 'লিংক আপডেট হয়েছে!', type: 'success' });
+      } else {
+        await addDoc(collection(db, 'links'), {
+          title: linkTitle,
+          description: linkDescription,
+          url: linkUrl,
+          createdAt: serverTimestamp(),
+        });
+        setToast({ message: 'লিংক সফলভাবে যোগ হয়েছে!', type: 'success' });
+      }
       setLinkTitle('');
       setLinkDescription('');
       setLinkUrl('');
-      setToast({ message: 'লিংক সফলভাবে যোগ হয়েছে!', type: 'success' });
     } catch (error) {
       setToast({ message: 'যোগ করতে সমস্যা হয়েছে।', type: 'error' });
     } finally {
@@ -338,18 +347,24 @@ export const AdminPanel: React.FC = () => {
     setLoading(true);
     try {
       const finalImageUrl = await getProcessedImageUrlAsync(appImageUrl.trim());
-      await addDoc(collection(db, 'apps'), {
-        title: appTitle,
-        description: appDescription,
-        url: appUrl,
-        imageUrl: finalImageUrl,
-        createdAt: serverTimestamp(),
-      });
+      if (editingAppId) {
+        await updateDoc(doc(db, 'apps', editingAppId), { title: appTitle, description: appDescription, url: appUrl, imageUrl: finalImageUrl });
+        setEditingAppId(null);
+        setToast({ message: 'অ্যাপ আপডেট হয়েছে!', type: 'success' });
+      } else {
+        await addDoc(collection(db, 'apps'), {
+          title: appTitle,
+          description: appDescription,
+          url: appUrl,
+          imageUrl: finalImageUrl,
+          createdAt: serverTimestamp(),
+        });
+        setToast({ message: 'অ্যাপ সফলভাবে যোগ হয়েছে!', type: 'success' });
+      }
       setAppTitle('');
       setAppDescription('');
       setAppUrl('');
       setAppImageUrl('');
-      setToast({ message: 'অ্যাপ সফলভাবে যোগ হয়েছে!', type: 'success' });
     } catch (error) {
       setToast({ message: 'যোগ করতে সমস্যা হয়েছে।', type: 'error' });
     } finally {
@@ -660,6 +675,12 @@ export const AdminPanel: React.FC = () => {
       {activeTab === 'links' && (
         <div className="space-y-8">
           <form onSubmit={handleSubmitLink} className="space-y-4">
+            {editingLinkId && (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-2 rounded-lg text-sm flex justify-between items-center">
+                <span>লিংক এডিট মোড</span>
+                <button type="button" onClick={() => { setEditingLinkId(null); setLinkTitle(''); setLinkDescription(''); setLinkUrl(''); }} className="text-emerald-500 hover:text-emerald-300 text-xs font-bold underline">বাতিল</button>
+              </div>
+            )}
             <input
               type="text"
               required
@@ -688,15 +709,18 @@ export const AdminPanel: React.FC = () => {
               disabled={loading}
               className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all"
             >
-              {loading ? <Loader2 className="animate-spin mx-auto" /> : 'লিংক যোগ করুন'}
+              {loading ? <Loader2 className="animate-spin mx-auto" /> : editingLinkId ? 'আপডেট করুন' : 'লিংক যোগ করুন'}
             </button>
           </form>
 
           <div className="space-y-4">
             {links.map(link => (
-              <div key={link.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-emerald-500/10">
+              <div key={link.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-emerald-500/10 gap-2">
                 <span className="text-sm font-medium text-emerald-50 truncate flex-1">{link.title}</span>
-                <button onClick={() => handleDeleteItem('links', link.id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
+                <div className="flex gap-2 shrink-0">
+                  <button onClick={() => { setEditingLinkId(link.id); setLinkTitle(link.title); setLinkDescription(link.description); setLinkUrl(link.url); }} className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg"><Edit2 size={16} /></button>
+                  <button onClick={() => handleDeleteItem('links', link.id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
+                </div>
               </div>
             ))}
           </div>
@@ -706,6 +730,12 @@ export const AdminPanel: React.FC = () => {
       {activeTab === 'apps' && (
         <div className="space-y-8">
           <form onSubmit={handleSubmitApp} className="space-y-4">
+            {editingAppId && (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-2 rounded-lg text-sm flex justify-between items-center">
+                <span>অ্যাপ এডিট মোড</span>
+                <button type="button" onClick={() => { setEditingAppId(null); setAppTitle(''); setAppDescription(''); setAppUrl(''); setAppImageUrl(''); }} className="text-emerald-500 hover:text-emerald-300 text-xs font-bold underline">বাতিল</button>
+              </div>
+            )}
             <input
               type="text"
               required
@@ -742,15 +772,18 @@ export const AdminPanel: React.FC = () => {
               disabled={loading}
               className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all"
             >
-              {loading ? <Loader2 className="animate-spin mx-auto" /> : 'অ্যাপ যোগ করুন'}
+              {loading ? <Loader2 className="animate-spin mx-auto" /> : editingAppId ? 'আপডেট করুন' : 'অ্যাপ যোগ করুন'}
             </button>
           </form>
 
           <div className="space-y-4">
             {apps.map(app => (
-              <div key={app.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-emerald-500/10">
+              <div key={app.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-emerald-500/10 gap-2">
                 <span className="text-sm font-medium text-emerald-50 truncate flex-1">{app.title}</span>
-                <button onClick={() => handleDeleteItem('apps', app.id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
+                <div className="flex gap-2 shrink-0">
+                  <button onClick={() => { setEditingAppId(app.id); setAppTitle(app.title); setAppDescription(app.description); setAppUrl(app.url); setAppImageUrl(app.imageUrl); }} className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg"><Edit2 size={16} /></button>
+                  <button onClick={() => handleDeleteItem('apps', app.id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
+                </div>
               </div>
             ))}
           </div>
@@ -763,6 +796,12 @@ export const AdminPanel: React.FC = () => {
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest border-b border-emerald-500/10 pb-2">ইনডিভিজুয়াল ভিডিও</h3>
             <form onSubmit={handleSubmitVideo} className="space-y-4">
+              {editingVideoId && (
+                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-2 rounded-lg text-sm flex justify-between items-center">
+                  <span>ভিডিও এডিট মোড</span>
+                  <button type="button" onClick={() => { setEditingVideoId(null); setVideoTitle(''); setVideoUrl(''); setVideoEmbedDisabled(false); }} className="text-emerald-500 hover:text-emerald-300 text-xs font-bold underline">বাতিল</button>
+                </div>
+              )}
               <input
                 type="text"
                 required
@@ -796,15 +835,26 @@ export const AdminPanel: React.FC = () => {
                 disabled={loading}
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all"
               >
-                {loading ? <Loader2 className="animate-spin mx-auto" /> : 'ভিডিও যোগ করুন'}
+                {loading ? <Loader2 className="animate-spin mx-auto" /> : editingVideoId ? 'আপডেট করুন' : 'ভিডিও যোগ করুন'}
               </button>
             </form>
 
             <div className="grid grid-cols-1 gap-2">
+              {/* Edit mode banner */}
+              {editingVideoId && (
+                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-2 rounded-lg text-sm flex justify-between items-center mb-2">
+                  <span>ভিডিও এডিট মোড - ফর্মে ডাটা লোড হয়েছে</span>
+                  <button type="button" onClick={() => { setEditingVideoId(null); setVideoTitle(''); setVideoUrl(''); setVideoEmbedDisabled(false); }} className="text-emerald-500 hover:text-emerald-300 text-xs font-bold underline">বাতিল</button>
+                </div>
+              )}
               {videos.map(video => (
-                <div key={video.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-emerald-500/10">
+                <div key={video.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-emerald-500/10 gap-2">
                   <span className="text-sm font-medium text-emerald-50 truncate flex-1">{video.title}</span>
-                  <button onClick={() => handleDeleteItem('videos', video.id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
+                  <div className="flex gap-2 shrink-0 items-center">
+                    {video.embedDisabled && <span className="text-[10px] bg-amber-900/40 text-amber-400 px-2 py-0.5 rounded-full">Embed Off</span>}
+                    <button onClick={() => { setEditingVideoId(video.id); setVideoTitle(video.title); setVideoUrl(video.videoUrl); setVideoEmbedDisabled(video.embedDisabled || false); }} className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg"><Edit2 size={16} /></button>
+                    <button onClick={() => handleDeleteItem('videos', video.id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
+                  </div>
                 </div>
               ))}
             </div>
