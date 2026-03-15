@@ -950,7 +950,13 @@ const VideosPage = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-emerald-950/40 border border-emerald-500/10 rounded-3xl overflow-hidden hover:border-emerald-500/30 transition-all group cursor-pointer"
-                onClick={() => setSelectedVideo(video)}
+                onClick={() => {
+                  if (video.embedDisabled) {
+                    window.open(video.videoUrl, '_blank', 'noopener,noreferrer');
+                  } else {
+                    setSelectedVideo(video);
+                  }
+                }}
               >
                 <div className="aspect-video relative overflow-hidden bg-black">
                   {thumbnailUrl ? (
@@ -965,6 +971,11 @@ const VideosPage = () => {
                           <div className="w-0 h-0 border-t-[10px] border-t-transparent border-l-[18px] border-l-white border-b-[10px] border-b-transparent ml-1" />
                         </div>
                       </div>
+                      {video.embedDisabled && (
+                        <div className="absolute bottom-2 right-2">
+                          <span className="text-[10px] bg-red-800/80 text-red-200 px-2 py-0.5 rounded-full backdrop-blur-sm font-semibold">ইউটিউবে দেখুন</span>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-emerald-500/40">
@@ -1004,6 +1015,18 @@ const VideosPage = () => {
               >
                 <CloseIcon size={24} />
               </button>
+              
+              <div className="absolute top-4 left-4 z-10">
+                <a 
+                  href={selectedVideo.videoUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600/90 hover:bg-red-500 text-white rounded-full text-xs font-bold transition-all backdrop-blur-md shadow-lg"
+                >
+                  <Youtube size={16} /> ইউটিউবে দেখুন (Watch on YouTube)
+                </a>
+              </div>
+
               <iframe 
                 src={`https://www.youtube.com/embed/${getYoutubeId(selectedVideo.videoUrl)}?autoplay=1`}
                 className="w-full h-full border-none"

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Download, Smartphone, Monitor, Share2, ChevronLeft, ChevronRight, Facebook } from 'lucide-react';
+import { X, Download, Smartphone, Monitor, Share2, ChevronLeft, ChevronRight, Facebook, Link as LinkIcon } from 'lucide-react';
 import { Wallpaper } from '../types';
 
 interface WallpaperModalProps {
@@ -132,8 +132,8 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({ wallpaper, onClo
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 w-full py-2 sm:py-3 mt-2 bg-emerald-900/30 text-emerald-200 rounded-xl text-xs sm:text-sm font-semibold hover:bg-emerald-800/40 hover:text-emerald-100 transition-colors border border-emerald-500/10"
                 >
-                  মূল ছবি (Credit) 
-                  <Share2 size={14} />
+                  <LinkIcon size={14} />
+                  মূল ছবি এখান থেকে নেওয়া হয়েছে (বাটনেটিতে ক্লিক করুন)
                 </a>
               )}
             </div>

@@ -13,6 +13,7 @@ export const AdminPanel: React.FC = () => {
   const [creditUrl, setCreditUrl] = useState('');
   const [type, setType] = useState<Wallpaper['type']>('mobile');
   const [category, setCategory] = useState('');
+  const [editingWallpaperId, setEditingWallpaperId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -47,6 +48,7 @@ export const AdminPanel: React.FC = () => {
   // Videos State
   const [videoTitle, setVideoTitle] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
+  const [videoEmbedDisabled, setVideoEmbedDisabled] = useState(false);
   const [videos, setVideos] = useState<VideoItem[]>([]);
   
   // Video Playlists State
@@ -212,19 +214,30 @@ export const AdminPanel: React.FC = () => {
     setLoading(true);
     try {
       const finalImageUrl = await getProcessedImageUrlAsync(imageUrlInput.trim());
-      await addDoc(collection(db, 'wallpapers'), {
-        imageUrl: finalImageUrl,
-        type,
-        category,
-        creditUrl: creditUrl.trim() || null,
-        createdAt: serverTimestamp(),
-        authorId: auth.currentUser.uid,
-      });
+      if (editingWallpaperId) {
+        await updateDoc(doc(db, 'wallpapers', editingWallpaperId), {
+          imageUrl: finalImageUrl,
+          type,
+          category,
+          creditUrl: creditUrl.trim() || null,
+        });
+        setEditingWallpaperId(null);
+        setToast({ message: 'ওয়ালপেপার সফলভাবে আপডেট হয়েছে!', type: 'success' });
+      } else {
+        await addDoc(collection(db, 'wallpapers'), {
+          imageUrl: finalImageUrl,
+          type,
+          category,
+          creditUrl: creditUrl.trim() || null,
+          createdAt: serverTimestamp(),
+          authorId: auth.currentUser.uid,
+        });
+        setToast({ message: 'ওয়ালপেপার সফলভাবে যোগ হয়েছে!', type: 'success' });
+      }
 
       setImageUrlInput('');
       setCategory('');
       setCreditUrl('');
-      setToast({ message: 'ওয়ালপেপার সফলভাবে যোগ হয়েছে!', type: 'success' });
     } catch (error: any) {
       console.error('Error adding wallpaper:', error);
       setToast({ message: 'যোগ করতে ব্যর্থ হয়েছে।', type: 'error' });
@@ -351,10 +364,12 @@ export const AdminPanel: React.FC = () => {
       await addDoc(collection(db, 'videos'), {
         title: videoTitle,
         videoUrl: videoUrl,
+        embedDisabled: videoEmbedDisabled,
         createdAt: serverTimestamp(),
       });
       setVideoTitle('');
       setVideoUrl('');
+      setVideoEmbedDisabled(false);
       setToast({ message: 'ভিডিও সফলভাবে যোগ হয়েছে!', type: 'success' });
     } catch (error) {
       setToast({ message: 'যোগ করতে সমস্যা হয়েছে।', type: 'error' });
@@ -440,6 +455,23 @@ export const AdminPanel: React.FC = () => {
 
       {activeTab === 'upload' && (
         <form onSubmit={handleSubmitWallpaper} className="space-y-4">
+          {editingWallpaperId && (
+            <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-2 rounded-lg text-sm flex justify-between items-center mb-4">
+              <span>আপনি এখন একটি ওয়ালপেপার এডিট করছেন।</span>
+              <button 
+                type="button" 
+                onClick={() => {
+                  setEditingWallpaperId(null);
+                  setImageUrlInput('');
+                  setCreditUrl('');
+                  setCategory('');
+                }}
+                className="text-emerald-500 hover:text-emerald-300 text-xs font-bold underline"
+              >
+                বাতিল করুন
+              </button>
+            </div>
+          )}
           <div>
             <label className="block text-xs font-semibold text-emerald-500/70 uppercase tracking-wider mb-1">ইমেজ সোর্স (Image Source)</label>
             <input
@@ -595,6 +627,19 @@ export const AdminPanel: React.FC = () => {
                   </p>
                 </div>
                 <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      setEditingWallpaperId(w.id);
+                      setImageUrlInput(w.imageUrl);
+                      setType(w.type);
+                      setCategory(w.category || '');
+                      setCreditUrl(w.creditUrl || '');
+                      setActiveTab('upload');
+                    }} 
+                    className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg"
+                  >
+                    <Edit2 size={16} />
+                  </button>
                   <button onClick={() => setDeleteConfirmId(w.id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
                 </div>
               </div>
@@ -734,6 +779,18 @@ export const AdminPanel: React.FC = () => {
                 className="w-full bg-black/40 border border-emerald-500/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
                 placeholder="ইউটিউব ভিডিও লিংক"
               />
+              <label className="flex items-center gap-3 cursor-pointer p-3 bg-amber-900/20 border border-amber-500/20 rounded-lg">
+                <input
+                  type="checkbox"
+                  checked={videoEmbedDisabled}
+                  onChange={(e) => setVideoEmbedDisabled(e.target.checked)}
+                  className="w-4 h-4 accent-amber-500"
+                />
+                <div>
+                  <p className="text-sm text-amber-300 font-semibold">এই ভিডিও অন্য সাইটে প্লে হয় না (Embed Disabled)</p>
+                  <p className="text-xs text-amber-400/60">চেক করলে জুজের ক্লিকে সরাসরি ইউটিউবে ওপেন হবে</p>
+                </div>
+              </label>
               <button
                 type="submit"
                 disabled={loading}
