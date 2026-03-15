@@ -57,6 +57,7 @@ export const AdminPanel: React.FC = () => {
   // Video Playlists State
   const [playlistTitle, setPlaylistTitle] = useState('');
   const [playlistUrl, setPlaylistUrl] = useState('');
+  const [editingPlaylistId, setEditingPlaylistId] = useState<string | null>(null);
   const [playlists, setPlaylists] = useState<VideoPlaylist[]>([]);
 
   // Floating Content State
@@ -424,14 +425,23 @@ export const AdminPanel: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await addDoc(collection(db, 'videoPlaylists'), {
-        title: playlistTitle,
-        playlistUrl: playlistUrl,
-        createdAt: serverTimestamp(),
-      });
+      if (editingPlaylistId) {
+        await updateDoc(doc(db, 'videoPlaylists', editingPlaylistId), {
+          title: playlistTitle,
+          playlistUrl: playlistUrl,
+        });
+        setEditingPlaylistId(null);
+        setToast({ message: 'প্লে-লিস্ট আপডেট হয়েছে!', type: 'success' });
+      } else {
+        await addDoc(collection(db, 'videoPlaylists'), {
+          title: playlistTitle,
+          playlistUrl: playlistUrl,
+          createdAt: serverTimestamp(),
+        });
+        setToast({ message: 'প্লে-লিস্ট সফলভাবে যোগ হয়েছে!', type: 'success' });
+      }
       setPlaylistTitle('');
       setPlaylistUrl('');
-      setToast({ message: 'প্লে-লিস্ট সফলভাবে যোগ হয়েছে!', type: 'success' });
     } catch (error) {
       setToast({ message: 'যোগ করতে সমস্যা হয়েছে।', type: 'error' });
     } finally {
@@ -874,6 +884,12 @@ export const AdminPanel: React.FC = () => {
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest border-b border-emerald-500/10 pb-2">ভিডিও প্লে-লিস্ট</h3>
             <form onSubmit={handleSubmitPlaylist} className="space-y-4">
+              {editingPlaylistId && (
+                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-4 py-2 rounded-lg text-sm flex justify-between items-center">
+                  <span>প্লে-লিস্ট এডিট মোড</span>
+                  <button type="button" onClick={() => { setEditingPlaylistId(null); setPlaylistTitle(''); setPlaylistUrl(''); }} className="text-emerald-500 hover:text-emerald-300 text-xs font-bold underline">বাতিল</button>
+                </div>
+              )}
               <input
                 type="text"
                 required
@@ -895,15 +911,18 @@ export const AdminPanel: React.FC = () => {
                 disabled={loading}
                 className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all"
               >
-                {loading ? <Loader2 className="animate-spin mx-auto" /> : 'প্লে-লিস্ট যোগ করুন'}
+                {loading ? <Loader2 className="animate-spin mx-auto" /> : editingPlaylistId ? 'আপডেট করুন' : 'প্লে-লিস্ট যোগ করুন'}
               </button>
             </form>
 
             <div className="grid grid-cols-1 gap-2">
               {playlists.map(pl => (
-                <div key={pl.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-emerald-500/10">
+                <div key={pl.id} className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-emerald-500/10 gap-2">
                   <span className="text-sm font-medium text-emerald-50 truncate flex-1">{pl.title}</span>
-                  <button onClick={() => handleDeleteItem('videoPlaylists', pl.id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={() => { setEditingPlaylistId(pl.id); setPlaylistTitle(pl.title); setPlaylistUrl(pl.playlistUrl); }} className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg"><Edit2 size={16} /></button>
+                    <button onClick={() => handleDeleteItem('videoPlaylists', pl.id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg"><Trash2 size={16} /></button>
+                  </div>
                 </div>
               ))}
             </div>
