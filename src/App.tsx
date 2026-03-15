@@ -290,6 +290,7 @@ const Home = () => {
   const [filter, setFilter] = useState<Wallpaper['type'] | 'all'>('all');
   const [search, setSearch] = useState('');
   const [selectedWallpaper, setSelectedWallpaper] = useState<Wallpaper | null>(null);
+  const [selectedHomeVideo, setSelectedHomeVideo] = useState<VideoItem | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const [siteConfig, setSiteConfig] = useState<SiteConfig>({
@@ -468,13 +469,26 @@ const Home = () => {
             return (
               <div 
                 key={video.id}
-                onClick={() => navigate('/videos')}
+                onClick={() => {
+                  if (video.embedDisabled) {
+                    window.open(video.videoUrl, '_blank', 'noopener,noreferrer');
+                  } else {
+                    setSelectedHomeVideo(video);
+                  }
+                }}
                 className="bg-emerald-950/40 border border-emerald-500/10 rounded-2xl overflow-hidden hover:border-emerald-500/30 transition-all cursor-pointer group"
               >
                 <div className="aspect-video relative overflow-hidden bg-black">
                   <img src={thumbnailUrl} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all" alt={video.title} />
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <PlayCircle size={40} className="text-emerald-500" />
+                    {video.embedDisabled ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <PlayCircle size={40} className="text-emerald-500" />
+                        <span className="text-[10px] bg-red-800/80 text-red-200 px-2 py-0.5 rounded-full backdrop-blur-sm font-semibold">ইউটিউবে দেখুন</span>
+                      </div>
+                    ) : (
+                      <PlayCircle size={40} className="text-emerald-500" />
+                    )}
                   </div>
                 </div>
                 <div className="p-4">
@@ -485,6 +499,55 @@ const Home = () => {
           })}
         </div>
       </section>
+
+      {/* Home Video Lightbox */}
+      <AnimatePresence>
+        {selectedHomeVideo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+            onClick={() => setSelectedHomeVideo(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-4xl aspect-video bg-black rounded-2xl overflow-hidden shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setSelectedHomeVideo(null)}
+                className="absolute top-4 right-4 z-10 p-2 bg-black/50 text-white rounded-full hover:bg-black/80 transition-all"
+              >
+                <CloseIcon size={24} />
+              </button>
+              <div className="absolute top-4 left-4 z-10">
+                <a
+                  href={selectedHomeVideo.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600/90 hover:bg-red-500 text-white rounded-full text-xs font-bold transition-all backdrop-blur-md shadow-lg"
+                >
+                  <Youtube size={16} /> ইউটিউবে দেখুন
+                </a>
+              </div>
+              <iframe
+                src={`https://www.youtube.com/embed/${(() => {
+                  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+                  const match = selectedHomeVideo.videoUrl.match(regExp);
+                  return (match && match[2].length === 11) ? match[2] : '';
+                })()}?autoplay=1`}
+                className="w-full h-full border-none"
+                allow="autoplay; fullscreen"
+                allowFullScreen
+                title={selectedHomeVideo.title}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <WallpaperModal 
         wallpaper={selectedWallpaper} 

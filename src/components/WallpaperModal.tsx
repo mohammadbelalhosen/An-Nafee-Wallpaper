@@ -61,7 +61,7 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({ wallpaper, onClo
         </motion.button>
 
         {onPrev && (
-          <button 
+          <button
             onClick={(e) => { e.stopPropagation(); onPrev(); }}
             className="absolute left-2 md:left-10 top-1/2 -translate-y-1/2 z-50 p-2 md:p-4 rounded-full bg-white/5 hover:bg-white/10 text-white transition-all border border-white/10 flex"
           >
@@ -69,7 +69,7 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({ wallpaper, onClo
           </button>
         )}
         {onNext && (
-          <button 
+          <button
             onClick={(e) => { e.stopPropagation(); onNext(); }}
             className="absolute right-2 md:right-10 top-1/2 -translate-y-1/2 z-50 p-2 md:p-4 rounded-full bg-white/5 hover:bg-white/10 text-white transition-all border border-white/10 flex"
           >
@@ -99,9 +99,9 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({ wallpaper, onClo
                 {wallpaper.type === 'mobile' && <Smartphone size={12} />}
                 {wallpaper.type === 'desktop' && <Monitor size={12} />}
                 {(wallpaper.type === 'fb_profile' || wallpaper.type === 'fb_cover') && <Facebook size={12} />}
-                {wallpaper.type === 'mobile' ? 'মোবাইল' : 
-                 wallpaper.type === 'desktop' ? 'ডেস্কটপ' : 
-                 wallpaper.type === 'fb_profile' ? 'ফেসবুক প্রোফাইল' : 'ফেসবুক কভার'} ওয়ালপেপার
+                {wallpaper.type === 'mobile' ? 'মোবাইল' :
+                  wallpaper.type === 'desktop' ? 'ডেস্কটপ' :
+                    wallpaper.type === 'fb_profile' ? 'ফেসবুক প্রোফাইল' : 'ফেসবুক কভার'} ওয়ালপেপার
               </p>
               {wallpaper.category && <p className="text-emerald-200/50 text-xs mt-1">{wallpaper.category}</p>}
             </div>
@@ -114,7 +114,7 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({ wallpaper, onClo
                 <Download size={18} />
                 ডাউনলোড করুন
               </button>
-              
+
               {(wallpaper.type === 'fb_profile' || wallpaper.type === 'fb_cover') && (
                 <button
                   onClick={handleSetWallpaper}
@@ -124,7 +124,7 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({ wallpaper, onClo
                   ফেসবুকে সেট করুন
                 </button>
               )}
-              
+
               {wallpaper.creditUrl && (
                 <a
                   href={wallpaper.creditUrl}
