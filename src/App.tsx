@@ -459,13 +459,37 @@ const Home = () => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {displayVideos.map(video => {
-            const getYoutubeId = (url: string) => {
-              const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-              const match = url.match(regExp);
-              return (match && match[2].length === 11) ? match[2] : null;
+            const getVideoInfo = (currentVideo: VideoItem) => {
+              const { videoUrl: url, thumbnailUrl: savedThumb } = currentVideo;
+              // YouTube Shorts: /shorts/VIDEO_ID
+              const shortsMatch = url.match(/youtube\.com\/shorts\/([^#\&\?]{11})/);
+              if (shortsMatch) {
+                return { 
+                  embedUrl: `https://www.youtube.com/embed/${shortsMatch[1]}?autoplay=1`, 
+                  thumbnailUrl: savedThumb || `https://img.youtube.com/vi/${shortsMatch[1]}/maxresdefault.jpg`,
+                  platform: 'youtube'
+                };
+              }
+              // Regular YouTube: watch?v=, youtu.be, embed/
+              const ytMatch = url.match(/^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
+              if (ytMatch && ytMatch[2].length === 11) {
+                return { 
+                  embedUrl: `https://www.youtube.com/embed/${ytMatch[2]}?autoplay=1`, 
+                  thumbnailUrl: savedThumb || `https://img.youtube.com/vi/${ytMatch[2]}/maxresdefault.jpg`,
+                  platform: 'youtube'
+                };
+              }
+              // Facebook Videos
+              if (url.includes('facebook.com') || url.includes('fb.watch')) {
+                return { 
+                  embedUrl: `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&autoplay=true`, 
+                  thumbnailUrl: savedThumb || '',
+                  platform: 'facebook' 
+                };
+              }
+              return { embedUrl: '', thumbnailUrl: savedThumb || '', platform: 'unknown' };
             };
-            const videoId = getYoutubeId(video.videoUrl);
-            const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
+            const { embedUrl, thumbnailUrl, platform } = getVideoInfo(video);
             return (
               <div 
                 key={video.id}
@@ -481,7 +505,14 @@ const Home = () => {
                 <div className="aspect-video relative overflow-hidden bg-black">
                   <img src={thumbnailUrl} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all" alt={video.title} />
                   <div className="absolute inset-0 flex items-center justify-center">
-                    {video.embedDisabled ? (
+                    {platform === 'facebook' ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-xl">
+                          <Facebook size={24} />
+                        </div>
+                        <span className="text-[10px] bg-blue-600/80 text-white px-2 py-0.5 rounded-full backdrop-blur-sm font-semibold">ফেসবুকে দেখুন</span>
+                      </div>
+                    ) : video.embedDisabled ? (
                       <div className="flex flex-col items-center gap-2">
                         <PlayCircle size={40} className="text-emerald-500" />
                         <span className="text-[10px] bg-red-800/80 text-red-200 px-2 py-0.5 rounded-full backdrop-blur-sm font-semibold">ইউটিউবে দেখুন</span>
@@ -534,13 +565,17 @@ const Home = () => {
                 </a>
               </div>
               <iframe
-                src={`https://www.youtube.com/embed/${(() => {
-                  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-                  const match = selectedHomeVideo.videoUrl.match(regExp);
-                  return (match && match[2].length === 11) ? match[2] : '';
-                })()}?autoplay=1`}
+                src={(() => {
+                  const shortsMatch = selectedHomeVideo.videoUrl.match(/youtube\.com\/shorts\/([^#\&\?]{11})/);
+                  if (shortsMatch) return `https://www.youtube.com/embed/${shortsMatch[1]}?autoplay=1`;
+                  const ytMatch = selectedHomeVideo.videoUrl.match(/^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
+                  if (ytMatch && ytMatch[2].length === 11) return `https://www.youtube.com/embed/${ytMatch[2]}?autoplay=1`;
+                  if (selectedHomeVideo.videoUrl.includes('facebook.com') || selectedHomeVideo.videoUrl.includes('fb.watch'))
+                    return `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(selectedHomeVideo.videoUrl)}&show_text=false&autoplay=true`;
+                  return '';
+                })()}
                 className="w-full h-full border-none"
-                allow="autoplay; fullscreen"
+                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen"
                 allowFullScreen
                 title={selectedHomeVideo.title}
               />
@@ -959,10 +994,35 @@ const VideosPage = () => {
     };
   }, []);
 
-  const getYoutubeId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+  const getVideoInfo = (currentVideo: VideoItem) => {
+    const { videoUrl: url, thumbnailUrl: savedThumb } = currentVideo;
+    // YouTube Shorts: /shorts/VIDEO_ID
+    const shortsMatch = url.match(/youtube\.com\/shorts\/([^#\&\?]{11})/);
+    if (shortsMatch) {
+      return {
+        embedUrl: `https://www.youtube.com/embed/${shortsMatch[1]}?autoplay=1`,
+        thumbnailUrl: savedThumb || `https://img.youtube.com/vi/${shortsMatch[1]}/maxresdefault.jpg`,
+        platform: 'youtube' as const,
+      };
+    }
+    // Regular YouTube: watch?v=, youtu.be, embed/
+    const ytMatch = url.match(/^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
+    if (ytMatch && ytMatch[2].length === 11) {
+      return {
+        embedUrl: `https://www.youtube.com/embed/${ytMatch[2]}?autoplay=1`,
+        thumbnailUrl: savedThumb || `https://img.youtube.com/vi/${ytMatch[2]}/maxresdefault.jpg`,
+        platform: 'youtube' as const,
+      };
+    }
+    // Facebook Videos
+    if (url.includes('facebook.com') || url.includes('fb.watch')) {
+      return {
+        embedUrl: `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(url)}&show_text=false&autoplay=true`,
+        thumbnailUrl: savedThumb || '',
+        platform: 'facebook' as const,
+      };
+    }
+    return { embedUrl: '', thumbnailUrl: savedThumb || '', platform: 'unknown' as const };
   };
 
   return (
@@ -1004,8 +1064,7 @@ const VideosPage = () => {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {videos.map(video => {
-            const videoId = getYoutubeId(video.videoUrl);
-            const thumbnailUrl = videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : '';
+            const { thumbnailUrl, platform } = getVideoInfo(video);
             
             return (
               <motion.div 
@@ -1030,9 +1089,18 @@ const VideosPage = () => {
                         alt={video.title} 
                       />
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-16 h-16 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 rounded-full flex items-center justify-center text-white shadow-2xl group-hover:scale-110 group-hover:bg-emerald-500/40 transition-all duration-300">
-                          <div className="w-0 h-0 border-t-[10px] border-t-transparent border-l-[18px] border-l-white border-b-[10px] border-b-transparent ml-1" />
-                        </div>
+                        {platform === 'facebook' ? (
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="w-16 h-16 bg-blue-600/20 backdrop-blur-md border border-blue-500/30 rounded-full flex items-center justify-center text-white shadow-2xl group-hover:scale-110 group-hover:bg-blue-600/40 transition-all duration-300">
+                              <Facebook size={32} />
+                            </div>
+                            <span className="text-[10px] bg-blue-600/80 text-white px-2 py-0.5 rounded-full backdrop-blur-sm font-semibold">ফেসবুকে দেখুন</span>
+                          </div>
+                        ) : (
+                          <div className="w-16 h-16 bg-emerald-500/20 backdrop-blur-md border border-emerald-500/30 rounded-full flex items-center justify-center text-white shadow-2xl group-hover:scale-110 group-hover:bg-emerald-500/40 transition-all duration-300">
+                            <div className="w-0 h-0 border-t-[10px] border-t-transparent border-l-[18px] border-l-white border-b-[10px] border-b-transparent ml-1" />
+                          </div>
+                        )}
                       </div>
                       {video.embedDisabled && (
                         <div className="absolute bottom-2 right-2">
@@ -1091,9 +1159,9 @@ const VideosPage = () => {
               </div>
 
               <iframe 
-                src={`https://www.youtube.com/embed/${getYoutubeId(selectedVideo.videoUrl)}?autoplay=1`}
+                src={getVideoInfo(selectedVideo).embedUrl}
                 className="w-full h-full border-none"
-                allow="autoplay; fullscreen"
+                allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen"
                 allowFullScreen
                 title={selectedVideo.title}
               />

@@ -44,6 +44,7 @@ export interface VideoItem {
   id: string;
   title: string;
   videoUrl: string;
+  thumbnailUrl?: string;
   embedDisabled?: boolean;
   createdAt: any;
 }

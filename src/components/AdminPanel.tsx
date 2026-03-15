@@ -376,11 +376,39 @@ export const AdminPanel: React.FC = () => {
   const handleSubmitVideo = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    let finalUrl = videoUrl;
+    if (videoUrl.includes('<iframe')) {
+      const match = videoUrl.match(/src="([^"]+)"/i);
+      if (match) finalUrl = match[1];
+    }
+
+    let thumbnailUrl = '';
+    // Fetch thumbnail for non-YouTube links
+    if (!finalUrl.includes('youtube.com') && !finalUrl.includes('youtu.be')) {
+      try {
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(finalUrl)}`;
+        const response = await fetch(proxyUrl);
+        const data = await response.json();
+        if (data.contents) {
+          const match = data.contents.match(/<meta[^>]*property="og:image"[^>]*content="([^"]+)"/i) ||
+                        data.contents.match(/<meta[^>]*content="([^"]+)"[^>]*property="og:image"/i) ||
+                        data.contents.match(/<meta[^>]*name="twitter:image"[^>]*content="([^"]+)"/i);
+          if (match && match[1]) {
+            thumbnailUrl = match[1].replace(/&amp;/g, '&');
+          }
+        }
+      } catch (error) {
+        console.error('Thumbnail fetch error:', error);
+      }
+    }
+
     try {
       if (editingVideoId) {
         await updateDoc(doc(db, 'videos', editingVideoId), {
           title: videoTitle,
-          videoUrl: videoUrl,
+          videoUrl: finalUrl,
+          thumbnailUrl: thumbnailUrl || '',
           embedDisabled: videoEmbedDisabled,
         });
         setEditingVideoId(null);
@@ -388,7 +416,8 @@ export const AdminPanel: React.FC = () => {
       } else {
         await addDoc(collection(db, 'videos'), {
           title: videoTitle,
-          videoUrl: videoUrl,
+          videoUrl: finalUrl,
+          thumbnailUrl: thumbnailUrl || '',
           embedDisabled: videoEmbedDisabled,
           createdAt: serverTimestamp(),
         });
@@ -831,12 +860,12 @@ export const AdminPanel: React.FC = () => {
                 placeholder="ভিডিও টাইটেল"
               />
               <input
-                type="url"
+                type="text"
                 required
                 value={videoUrl}
                 onChange={(e) => setVideoUrl(e.target.value)}
                 className="w-full bg-black/40 border border-emerald-500/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-emerald-500"
-                placeholder="ইউটিউব ভিডিও লিংক"
+                placeholder="ভিডিও লিংক বা এমবেড কোড (iframe)"
               />
               <label className="flex items-center gap-3 cursor-pointer p-3 bg-amber-900/20 border border-amber-500/20 rounded-lg">
                 <input
