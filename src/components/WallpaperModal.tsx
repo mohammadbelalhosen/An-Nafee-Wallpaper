@@ -133,7 +133,7 @@ export const WallpaperModal: React.FC<WallpaperModalProps> = ({ wallpaper, onClo
                   className="flex items-center justify-center gap-2 w-full py-2 sm:py-3 mt-2 bg-emerald-900/30 text-emerald-200 rounded-xl text-xs sm:text-sm font-semibold hover:bg-emerald-800/40 hover:text-emerald-100 transition-colors border border-emerald-500/10"
                 >
                   <LinkIcon size={14} />
-                  মূল ছবি এখান থেকে নেওয়া হয়েছে (বাটনেটিতে ক্লিক করুন)
+                  মূল ছবি এখান থেকে নেওয়া হয়েছে
                 </a>
               )}
             </div>
