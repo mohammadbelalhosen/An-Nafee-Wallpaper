@@ -376,16 +376,26 @@ export const AdminPanel: React.FC = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await addDoc(collection(db, 'videos'), {
-        title: videoTitle,
-        videoUrl: videoUrl,
-        embedDisabled: videoEmbedDisabled,
-        createdAt: serverTimestamp(),
-      });
+      if (editingVideoId) {
+        await updateDoc(doc(db, 'videos', editingVideoId), {
+          title: videoTitle,
+          videoUrl: videoUrl,
+          embedDisabled: videoEmbedDisabled,
+        });
+        setEditingVideoId(null);
+        setToast({ message: 'ভিডিও আপডেট হয়েছে!', type: 'success' });
+      } else {
+        await addDoc(collection(db, 'videos'), {
+          title: videoTitle,
+          videoUrl: videoUrl,
+          embedDisabled: videoEmbedDisabled,
+          createdAt: serverTimestamp(),
+        });
+        setToast({ message: 'ভিডিও সফলভাবে যোগ হয়েছে!', type: 'success' });
+      }
       setVideoTitle('');
       setVideoUrl('');
       setVideoEmbedDisabled(false);
-      setToast({ message: 'ভিডিও সফলভাবে যোগ হয়েছে!', type: 'success' });
     } catch (error) {
       setToast({ message: 'যোগ করতে সমস্যা হয়েছে।', type: 'error' });
     } finally {
